@@ -51,13 +51,12 @@ export default function KasirPage() {
       alert("Uang tidak cukup!");
       return;
     }
-    // For hutang we still create transaction with method hutang
-    const method = paymentMethod === "hutang" ? "tunai" : paymentMethod;
-    const trx = createTransaction(method as any, paymentMethod === "hutang" ? 0 : paid);
+    const trx = createTransaction(
+      paymentMethod,
+      paid,
+      paymentMethod === "hutang" ? selectedCustomer : undefined
+    );
     if (trx) {
-      // Attach customer info for display
-      (trx as any).customerName = selectedCustomer || "Umum";
-      (trx as any).isHutang = paymentMethod === "hutang";
       setLastTransaction(trx);
       setShowPayment(false);
       setShowSuccess(true);

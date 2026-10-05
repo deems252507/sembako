@@ -36,6 +36,7 @@ interface AppState {
   addProduct: (product: Omit<Product, "id">) => void;
   updateProduct: (id: string, data: Partial<Product>) => void;
   deleteProduct: (id: string) => void;
+  adjustStock: (id: string, newStock: number, note: string) => void;
 
   cart: CartItem[];
   addToCart: (product: Product) => void;
@@ -44,17 +45,23 @@ interface AppState {
   clearCart: () => void;
 
   transactions: Transaction[];
-  createTransaction: (paymentMethod: "tunai" | "qris" | "transfer", amountPaid: number) => Transaction | null;
+  createTransaction: (
+    paymentMethod: "tunai" | "qris" | "transfer" | "hutang",
+    amountPaid: number,
+    customerName?: string
+  ) => Transaction | null;
 
   customers: Customer[];
   addCustomer: (name: string, phone: string) => void;
   updateCustomer: (id: string, data: Partial<Customer>) => void;
   deleteCustomer: (id: string) => void;
+  bayarHutangPelanggan: (id: string, amount: number) => boolean;
 
   suppliers: Supplier[];
   addSupplier: (name: string, phone: string) => void;
   updateSupplier: (id: string, data: Partial<Supplier>) => void;
   deleteSupplier: (id: string) => void;
+  bayarHutangSupplier: (id: string, amount: number) => boolean;
 
   purchases: { id: string; date: string; supplier: string; total: number; status: string }[];
   addPurchase: (supplier: string, total: number, status: string, items: { productId: string; qty: number; price: number }[]) => void;
@@ -66,12 +73,13 @@ interface AppState {
   currentShift: { openedAt: string; initialCash: number; status: "open" | "closed" } | null;
   openShift: (initialCash: number) => void;
   closeShift: (actualCash: number) => void;
+
+  stockLogs: { id: string; date: string; productName: string; qtyBefore: number; qtyAfter: number; note: string }[];
 }
 
 const generateId = () => Math.random().toString(36).substring(2, 11);
 const generateInvoice = () => {
-  const now = new Date();
-  const date = now.toISOString().slice(0, 10).replace(/-/g, "");
+  const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
   const seq = Math.floor(Math.random() * 9000) + 1000;
   return "INV-" + date + "-" + seq;
 };
@@ -83,7 +91,10 @@ export const useStore = create<AppState>()(
       isLoggedIn: false,
       login: (username, password) => {
         if (username && password) {
-          set({ user: { ...initialUser, username, name: username === "admin" ? "Admin" : username }, isLoggedIn: true });
+          set({
+            user: { ...initialUser, username, name: username === "admin" ? "Admin" : username },
+            isLoggedIn: true,
+          });
           return true;
         }
         return false;
@@ -99,36 +110,65 @@ export const useStore = create<AppState>()(
       addProduct: (product) =>
         set((state) => ({ products: [...state.products, { ...product, id: generateId() }] })),
       updateProduct: (id, data) =>
-        set((state) => ({ products: state.products.map((p) => (p.id === id ? { ...p, ...data } : p)) })),
+        set((state) => ({
+          products: state.products.map((p) => (p.id === id ? { ...p, ...data } : p)),
+        })),
       deleteProduct: (id) =>
         set((state) => ({ products: state.products.filter((p) => p.id !== id) })),
+      adjustStock: (id, newStock, note) => {
+        const state = get();
+        const product = state.products.find((p) => p.id === id);
+        if (!product) return;
+        set({
+          products: state.products.map((p) => (p.id === id ? { ...p, stock: newStock } : p)),
+          stockLogs: [
+            {
+              id: generateId(),
+              date: new Date().toISOString(),
+              productName: product.name,
+              qtyBefore: product.stock,
+              qtyAfter: newStock,
+              note,
+            },
+            ...state.stockLogs,
+          ],
+        });
+      },
 
       cart: [],
       addToCart: (product) =>
         set((state) => {
           const existing = state.cart.find((c) => c.product.id === product.id);
           if (existing) {
-            return { cart: state.cart.map((c) => c.product.id === product.id ? { ...c, qty: c.qty + 1 } : c) };
+            return {
+              cart: state.cart.map((c) =>
+                c.product.id === product.id ? { ...c, qty: c.qty + 1 } : c
+              ),
+            };
           }
           return { cart: [...state.cart, { product, qty: 1, discount: 0 }] };
         }),
       updateCartQty: (productId, qty) =>
         set((state) => ({
-          cart: qty <= 0
-            ? state.cart.filter((c) => c.product.id !== productId)
-            : state.cart.map((c) => c.product.id === productId ? { ...c, qty } : c),
+          cart:
+            qty <= 0
+              ? state.cart.filter((c) => c.product.id !== productId)
+              : state.cart.map((c) => (c.product.id === productId ? { ...c, qty } : c)),
         })),
       removeFromCart: (productId) =>
         set((state) => ({ cart: state.cart.filter((c) => c.product.id !== productId) })),
       clearCart: () => set({ cart: [] }),
 
       transactions: [],
-      createTransaction: (paymentMethod, amountPaid) => {
+      createTransaction: (paymentMethod, amountPaid, customerName) => {
         const state = get();
         if (state.cart.length === 0) return null;
-        const subtotal = state.cart.reduce((sum, item) => sum + item.product.sell_price * item.qty - item.discount, 0);
+        const subtotal = state.cart.reduce(
+          (sum, item) => sum + item.product.sell_price * item.qty - item.discount,
+          0
+        );
         const total = subtotal;
-        if (amountPaid < total && paymentMethod === "tunai") return null;
+        if (paymentMethod === "tunai" && amountPaid < total) return null;
 
         const invoice = generateInvoice();
         const transaction: Transaction = {
@@ -136,30 +176,63 @@ export const useStore = create<AppState>()(
           invoice,
           date: new Date().toISOString(),
           cashier: state.user?.name || "Kasir",
+          customer: customerName || "Umum",
           items: [...state.cart],
           subtotal,
           discount: 0,
           total,
-          payment_method: paymentMethod,
-          amount_paid: amountPaid,
-          change: Math.max(0, amountPaid - total),
+          payment_method: paymentMethod === "hutang" ? "tunai" : paymentMethod,
+          amount_paid: paymentMethod === "hutang" ? 0 : amountPaid,
+          change: paymentMethod === "hutang" ? 0 : Math.max(0, amountPaid - total),
           status: "selesai",
         };
+        (transaction as any).isHutang = paymentMethod === "hutang";
+        (transaction as any).customerName = customerName || "Umum";
 
+        // Kurangi stok
         const updatedProducts = state.products.map((p) => {
           const cartItem = state.cart.find((c) => c.product.id === p.id);
           if (cartItem) return { ...p, stock: Math.max(0, p.stock - cartItem.qty) };
           return p;
         });
 
-        const newCash = paymentMethod === "tunai" ? state.cashBalance + total : state.cashBalance;
-        const cashTx = paymentMethod === "tunai"
-          ? [...state.cashTransactions, { id: generateId(), date: new Date().toISOString(), keterangan: "Penjualan " + invoice, jenis: "masuk" as const, jumlah: total }]
-          : state.cashTransactions;
+        // Update pelanggan jika bon
+        let updatedCustomers = state.customers;
+        if (paymentMethod === "hutang" && customerName) {
+          updatedCustomers = state.customers.map((c) => {
+            if (c.name === customerName) {
+              return {
+                ...c,
+                totalBelanja: c.totalBelanja + total,
+                totalHutang: c.totalHutang + total,
+                sisaHutang: c.sisaHutang + total,
+              };
+            }
+            return c;
+          });
+        }
+
+        // Kas masuk jika tunai
+        let newCash = state.cashBalance;
+        let cashTx = state.cashTransactions;
+        if (paymentMethod === "tunai") {
+          newCash += total;
+          cashTx = [
+            {
+              id: generateId(),
+              date: new Date().toISOString(),
+              keterangan: "Penjualan " + invoice,
+              jenis: "masuk" as const,
+              jumlah: total,
+            },
+            ...cashTx,
+          ];
+        }
 
         set({
           transactions: [transaction, ...state.transactions],
           products: updatedProducts,
+          customers: updatedCustomers,
           cart: [],
           cashBalance: newCash,
           cashTransactions: cashTx,
@@ -174,11 +247,42 @@ export const useStore = create<AppState>()(
         { id: "4", name: "Toko Kita", phone: "081234567456", totalBelanja: 980000, totalHutang: 200000, sisaHutang: 200000 },
       ],
       addCustomer: (name, phone) =>
-        set((state) => ({ customers: [...state.customers, { id: generateId(), name, phone, totalBelanja: 0, totalHutang: 0, sisaHutang: 0 }] })),
+        set((state) => ({
+          customers: [
+            ...state.customers,
+            { id: generateId(), name, phone, totalBelanja: 0, totalHutang: 0, sisaHutang: 0 },
+          ],
+        })),
       updateCustomer: (id, data) =>
-        set((state) => ({ customers: state.customers.map((c) => (c.id === id ? { ...c, ...data } : c)) })),
+        set((state) => ({
+          customers: state.customers.map((c) => (c.id === id ? { ...c, ...data } : c)),
+        })),
       deleteCustomer: (id) =>
         set((state) => ({ customers: state.customers.filter((c) => c.id !== id) })),
+      bayarHutangPelanggan: (id, amount) => {
+        const state = get();
+        const customer = state.customers.find((c) => c.id === id);
+        if (!customer || amount <= 0 || amount > customer.sisaHutang) return false;
+        set({
+          customers: state.customers.map((c) =>
+            c.id === id
+              ? { ...c, sisaHutang: c.sisaHutang - amount }
+              : c
+          ),
+          cashBalance: state.cashBalance + amount,
+          cashTransactions: [
+            {
+              id: generateId(),
+              date: new Date().toISOString(),
+              keterangan: "Bayar hutang: " + customer.name,
+              jenis: "masuk" as const,
+              jumlah: amount,
+            },
+            ...state.cashTransactions,
+          ],
+        });
+        return true;
+      },
 
       suppliers: [
         { id: "1", name: "Toko Sumber Rejeki", phone: "081111111111", totalPembelian: 1250000, hutang: 0 },
@@ -186,11 +290,41 @@ export const useStore = create<AppState>()(
         { id: "3", name: "CV. Maju Makmur", phone: "083333333333", totalPembelian: 1560000, hutang: 560000 },
       ],
       addSupplier: (name, phone) =>
-        set((state) => ({ suppliers: [...state.suppliers, { id: generateId(), name, phone, totalPembelian: 0, hutang: 0 }] })),
+        set((state) => ({
+          suppliers: [
+            ...state.suppliers,
+            { id: generateId(), name, phone, totalPembelian: 0, hutang: 0 },
+          ],
+        })),
       updateSupplier: (id, data) =>
-        set((state) => ({ suppliers: state.suppliers.map((s) => (s.id === id ? { ...s, ...data } : s)) })),
+        set((state) => ({
+          suppliers: state.suppliers.map((s) => (s.id === id ? { ...s, ...data } : s)),
+        })),
       deleteSupplier: (id) =>
         set((state) => ({ suppliers: state.suppliers.filter((s) => s.id !== id) })),
+      bayarHutangSupplier: (id, amount) => {
+        const state = get();
+        const supplier = state.suppliers.find((s) => s.id === id);
+        if (!supplier || amount <= 0 || amount > supplier.hutang) return false;
+        if (state.cashBalance < amount) return false;
+        set({
+          suppliers: state.suppliers.map((s) =>
+            s.id === id ? { ...s, hutang: s.hutang - amount } : s
+          ),
+          cashBalance: state.cashBalance - amount,
+          cashTransactions: [
+            {
+              id: generateId(),
+              date: new Date().toISOString(),
+              keterangan: "Bayar hutang supplier: " + supplier.name,
+              jenis: "keluar" as const,
+              jumlah: amount,
+            },
+            ...state.cashTransactions,
+          ],
+        });
+        return true;
+      },
 
       purchases: [
         { id: "1", date: "2026-10-01", supplier: "Toko Sumber Rejeki", total: 1250000, status: "Lunas" },
@@ -206,9 +340,33 @@ export const useStore = create<AppState>()(
           if (item) return { ...p, stock: p.stock + item.qty };
           return p;
         });
+        let updatedSuppliers = state.suppliers;
+        if (status === "Hutang") {
+          updatedSuppliers = state.suppliers.map((s) =>
+            s.name === supplier
+              ? { ...s, totalPembelian: s.totalPembelian + total, hutang: s.hutang + total }
+              : s
+          );
+        } else {
+          updatedSuppliers = state.suppliers.map((s) =>
+            s.name === supplier
+              ? { ...s, totalPembelian: s.totalPembelian + total }
+              : s
+          );
+        }
         set({
-          purchases: [{ id: generateId(), date: new Date().toISOString().slice(0, 10), supplier, total, status }, ...state.purchases],
+          purchases: [
+            {
+              id: generateId(),
+              date: new Date().toISOString().slice(0, 10),
+              supplier,
+              total,
+              status,
+            },
+            ...state.purchases,
+          ],
           products: updatedProducts,
+          suppliers: updatedSuppliers,
         });
       },
 
@@ -221,14 +379,43 @@ export const useStore = create<AppState>()(
       ],
       addCashTransaction: (keterangan, jenis, jumlah) =>
         set((state) => ({
-          cashTransactions: [{ id: generateId(), date: new Date().toISOString().slice(0, 10), keterangan, jenis, jumlah }, ...state.cashTransactions],
-          cashBalance: jenis === "masuk" ? state.cashBalance + jumlah : state.cashBalance - jumlah,
+          cashTransactions: [
+            {
+              id: generateId(),
+              date: new Date().toISOString().slice(0, 10),
+              keterangan,
+              jenis,
+              jumlah,
+            },
+            ...state.cashTransactions,
+          ],
+          cashBalance:
+            jenis === "masuk" ? state.cashBalance + jumlah : state.cashBalance - jumlah,
         })),
 
-      currentShift: { openedAt: "2026-10-01T07:00:00", initialCash: 500000, status: "open" },
-      openShift: (initialCash) => set({ currentShift: { openedAt: new Date().toISOString(), initialCash, status: "open" }, cashBalance: initialCash }),
-      closeShift: () => set((state) => ({ currentShift: state.currentShift ? { ...state.currentShift, status: "closed" } : null })),
+      currentShift: {
+        openedAt: "2026-10-01T07:00:00",
+        initialCash: 500000,
+        status: "open",
+      },
+      openShift: (initialCash) =>
+        set({
+          currentShift: {
+            openedAt: new Date().toISOString(),
+            initialCash,
+            status: "open",
+          },
+          cashBalance: initialCash,
+        }),
+      closeShift: () =>
+        set((state) => ({
+          currentShift: state.currentShift
+            ? { ...state.currentShift, status: "closed" }
+            : null,
+        })),
+
+      stockLogs: [],
     }),
-    { name: "warung-sembako-storage-v2" }
+    { name: "warung-sembako-storage-v3" }
   )
 );
