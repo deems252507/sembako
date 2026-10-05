@@ -1,17 +1,29 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import { useStore } from "@/store/useStore";
 
 export default function PengaturanPage() {
-  const { storeSettings, updateStoreSettings } = useStore();
+  const { storeSettings, updateStoreSettings, resetStoreSettings } = useStore();
   const [form, setForm] = useState({ ...storeSettings });
   const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    setForm({ ...storeSettings });
+  }, [storeSettings]);
 
   const handleSave = () => {
     updateStoreSettings(form);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
+  };
+
+  const handleReset = () => {
+    if (confirm("Kembalikan ke pengaturan default?")) {
+      resetStoreSettings();
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    }
   };
 
   return (
@@ -56,13 +68,18 @@ export default function PengaturanPage() {
               <textarea value={form.footer_receipt || ""} onChange={(e) => setForm({ ...form, footer_receipt: e.target.value })}
                 className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" rows={2} />
             </div>
-            <button onClick={handleSave}
-              className="w-full rounded-xl bg-green-600 py-3 text-sm font-bold text-white hover:bg-green-700">
-              {saved ? "✓ Tersimpan!" : "Simpan Perubahan"}
-            </button>
+            <div className="flex gap-3">
+              <button onClick={handleSave}
+                className="flex-1 rounded-xl bg-green-600 py-3 text-sm font-bold text-white hover:bg-green-700">
+                {saved ? "Tersimpan!" : "Simpan Perubahan"}
+              </button>
+              <button onClick={handleReset}
+                className="rounded-xl border border-slate-200 px-4 py-3 text-sm font-medium hover:bg-slate-50">
+                Reset Default
+              </button>
+            </div>
           </div>
 
-          {/* Preview Struk */}
           <div className="card p-6">
             <h2 className="text-lg font-semibold mb-4">Preview Struk</h2>
             <div className="border border-dashed border-slate-300 rounded-xl p-4 text-sm font-mono bg-slate-50">
@@ -72,14 +89,11 @@ export default function PengaturanPage() {
               <hr className="my-2 border-slate-300" />
               <p>Invoice: INV-20261005-0001</p>
               <p>Kasir: Admin</p>
-              <p>Tanggal: 05/10/2026 14:00</p>
               <hr className="my-2 border-slate-300" />
               <div className="flex justify-between"><span>Beras 5 Kg x1</span><span>Rp 65.000</span></div>
               <div className="flex justify-between"><span>Minyak Goreng x2</span><span>Rp 36.000</span></div>
               <hr className="my-2 border-slate-300" />
               <div className="flex justify-between font-bold"><span>Total</span><span>Rp 101.000</span></div>
-              <div className="flex justify-between"><span>Bayar</span><span>Rp 105.000</span></div>
-              <div className="flex justify-between"><span>Kembali</span><span>Rp 4.000</span></div>
               <hr className="my-2 border-slate-300" />
               <p className="text-center text-xs text-slate-400 mt-2">{form.footer_receipt}</p>
             </div>
