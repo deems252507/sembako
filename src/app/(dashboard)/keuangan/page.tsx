@@ -3,24 +3,74 @@ import { useState } from "react";
 import Header from "@/components/Header";
 import { useStore } from "@/store/useStore";
 import { formatRupiah } from "@/lib/utils";
-import { Plus, X, ArrowDownLeft, ArrowUpRight } from "lucide-react";
+import { Plus, X, ArrowDownLeft, ArrowUpRight, Printer } from "lucide-react";
 
 export default function KeuanganPage() {
-  const { cashBalance, cashTransactions, addCashTransaction } = useStore();
+  const { cashBalance, cashTransactions, addCashTransaction, storeSettings, transactions } = useStore();
   const [showForm, setShowForm] = useState(false);
   const [jenis, setJenis] = useState<"masuk" | "keluar">("masuk");
   const [keterangan, setKeterangan] = useState("");
   const [jumlah, setJumlah] = useState("");
+  const [metode, setMetode] = useState("tunai");
 
   const totalMasuk = cashTransactions.filter(t => t.jenis === "masuk").reduce((s, t) => s + t.jumlah, 0);
   const totalKeluar = cashTransactions.filter(t => t.jenis === "keluar").reduce((s, t) => s + t.jumlah, 0);
 
+  const cashSales = transactions.filter(t => t.payment_method === "tunai" && !(t as any).isHutang).reduce((s, t) => s + t.total, 0);
+  const qrisSales = transactions.filter(t => t.payment_method === "qris").reduce((s, t) => s + t.total, 0);
+  const tfSales = transactions.filter(t => t.payment_method === "transfer").reduce((s, t) => s + t.total, 0);
+
   const handleAdd = () => {
     if (!keterangan || !jumlah) return alert("Lengkapi data");
-    addCashTransaction(keterangan, jenis, Number(jumlah));
+    const ket = keterangan + (metode !== "tunai" ? " (" + metode.toUpperCase() + ")" : "");
+    addCashTransaction(ket, jenis, Number(jumlah));
     setShowForm(false);
     setKeterangan("");
     setJumlah("");
+  };
+
+  const handlePrint = () => {
+    const win = window.open("", "_blank");
+    if (!win) return;
+    const rows = cashTransactions.map(t =>
+      `<tr>
+        <td>${t.date.slice(0,10)}</td>
+        <td>${t.keterangan}</td>
+        <td>${t.jenis === "masuk" ? "Masuk" : "Keluar"}</td>
+        <td style="text-align:right;color:${t.jenis==="masuk"?"green":"red"}">${t.jenis==="masuk"?"+":"-"}${formatRupiah(t.jumlah)}</td>
+      </tr>`
+    ).join("");
+    win.document.write(`
+      <html><head><title>Laporan Keuangan - ${storeSettings.store_name}</title>
+      <style>
+        body{font-family:Arial,sans-serif;padding:24px;font-size:13px}
+        h1{margin:0;font-size:18px} .sub{color:#555;margin:4px 0 16px;font-size:13px}
+        table{width:100%;border-collapse:collapse;margin-top:12px}
+        th,td{border:1px solid #ddd;padding:8px;text-align:left} th{background:#f5f5f5}
+        .cards{display:flex;gap:16px;margin:16px 0}
+        .card{border:1px solid #ddd;border-radius:8px;padding:12px;flex:1}
+        .card b{display:block;font-size:16px;margin-top:4px}
+      </style></head><body>
+      <h1>${storeSettings.store_name}</h1>
+      <p class="sub">Laporan Keuangan — ${new Date().toLocaleDateString("id-ID")}<br/>${storeSettings.address} | ${storeSettings.phone}</p>
+      <div class="cards">
+        <div class="card">Saldo Kas<b style="color:green">${formatRupiah(cashBalance)}</b></div>
+        <div class="card">Kas Masuk<b style="color:#2563eb">${formatRupiah(totalMasuk)}</b></div>
+        <div class="card">Kas Keluar<b style="color:red">${formatRupiah(totalKeluar)}</b></div>
+      </div>
+      <div class="cards">
+        <div class="card">Penjualan Tunai<b>${formatRupiah(cashSales)}</b></div>
+        <div class="card">QRIS<b>${formatRupiah(qrisSales)}</b></div>
+        <div class="card">Transfer<b>${formatRupiah(tfSales)}</b></div>
+      </div>
+      <table>
+        <thead><tr><th>Tanggal</th><th>Keterangan</th><th>Jenis</th><th>Jumlah</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <script>window.onload=function(){window.print()}</script>
+      </body></html>
+    `);
+    win.document.close();
   };
 
   return (
@@ -42,11 +92,31 @@ export default function KeuanganPage() {
           </div>
         </div>
 
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="card p-4">
+            <p className="text-xs text-slate-500">Penjualan Tunai</p>
+            <p className="text-lg font-bold">{formatRupiah(cashSales)}</p>
+          </div>
+          <div className="card p-4">
+            <p className="text-xs text-slate-500">QRIS</p>
+            <p className="text-lg font-bold">{formatRupiah(qrisSales)}</p>
+          </div>
+          <div className="card p-4">
+            <p className="text-xs text-slate-500">Transfer</p>
+            <p className="text-lg font-bold">{formatRupiah(tfSales)}</p>
+          </div>
+        </div>
+
         <div className="flex justify-between items-center">
           <h2 className="text-lg font-semibold">Riwayat Kas</h2>
-          <button onClick={() => setShowForm(true)} className="inline-flex items-center gap-2 rounded-xl bg-green-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-green-700">
-            <Plus className="h-4 w-4" /> Tambah Transaksi
-          </button>
+          <div className="flex gap-2">
+            <button onClick={handlePrint} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium hover:bg-slate-50">
+              <Printer className="h-4 w-4" /> Cetak PDF
+            </button>
+            <button onClick={() => setShowForm(true)} className="inline-flex items-center gap-2 rounded-xl bg-green-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-green-700">
+              <Plus className="h-4 w-4" /> Tambah
+            </button>
+          </div>
         </div>
 
         <div className="card overflow-hidden">
@@ -66,12 +136,12 @@ export default function KeuanganPage() {
                     <td className="px-4 py-3">{t.date.slice(0, 10)}</td>
                     <td className="px-4 py-3 font-medium">{t.keterangan}</td>
                     <td className="px-4 py-3">
-                      <span className={`inline-flex items-center gap-1 badge ${t.jenis === "masuk" ? "badge-success" : "badge-danger"}`}>
+                      <span className={"inline-flex items-center gap-1 badge " + (t.jenis === "masuk" ? "badge-success" : "badge-danger")}>
                         {t.jenis === "masuk" ? <ArrowDownLeft className="h-3 w-3" /> : <ArrowUpRight className="h-3 w-3" />}
                         {t.jenis === "masuk" ? "Masuk" : "Keluar"}
                       </span>
                     </td>
-                    <td className={`px-4 py-3 font-medium ${t.jenis === "masuk" ? "text-green-600" : "text-red-600"}`}>
+                    <td className={"px-4 py-3 font-medium " + (t.jenis === "masuk" ? "text-green-600" : "text-red-600")}>
                       {t.jenis === "masuk" ? "+" : "-"}{formatRupiah(t.jumlah)}
                     </td>
                   </tr>
@@ -91,8 +161,16 @@ export default function KeuanganPage() {
               </div>
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-2">
-                  <button onClick={() => setJenis("masuk")} className={`rounded-xl py-2.5 text-sm font-semibold ${jenis === "masuk" ? "bg-green-600 text-white" : "border border-slate-200"}`}>Kas Masuk</button>
-                  <button onClick={() => setJenis("keluar")} className={`rounded-xl py-2.5 text-sm font-semibold ${jenis === "keluar" ? "bg-red-600 text-white" : "border border-slate-200"}`}>Kas Keluar</button>
+                  <button onClick={() => setJenis("masuk")} className={"rounded-xl py-2.5 text-sm font-semibold " + (jenis === "masuk" ? "bg-green-600 text-white" : "border border-slate-200")}>Kas Masuk</button>
+                  <button onClick={() => setJenis("keluar")} className={"rounded-xl py-2.5 text-sm font-semibold " + (jenis === "keluar" ? "bg-red-600 text-white" : "border border-slate-200")}>Kas Keluar</button>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {["tunai", "qris", "transfer"].map((m) => (
+                    <button key={m} onClick={() => setMetode(m)}
+                      className={"rounded-xl py-2 text-xs font-semibold capitalize " + (metode === m ? "border-2 border-green-500 bg-green-50 text-green-700" : "border border-slate-200")}>
+                      {m}
+                    </button>
+                  ))}
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Keterangan</label>

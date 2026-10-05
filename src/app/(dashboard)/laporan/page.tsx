@@ -60,7 +60,7 @@ export default function LaporanPage() {
       ` : ""}
       ${trx.isHutang ? `<div class="center bold" style="color:#b45309;margin-top:6px">* BELUM LUNAS *</div>` : ""}
       <hr>
-      <div class="center" style="font-size:11px;color:#888;margin-top:8px">${storeSettings.footer_receipt || ""}</div>
+      <div class="center" style="font-size:11px;color:#888;margin-top:8px">${(storeSettings.footer_receipt && !storeSettings.footer_receipt.includes("Makmur")) ? storeSettings.footer_receipt : ("Terima kasih telah berbelanja di " + storeSettings.store_name + "!")}</div>
       <script>window.onload=function(){window.print()}</script>
       </body></html>
     `);

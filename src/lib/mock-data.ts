@@ -9,7 +9,7 @@ export const storeSettings: StoreSettings = {
   whatsapp: "081234567890",
   email: "info@warungsembako.com",
   slogan: "Kelola Warung, Lebih Mudah",
-  footer_receipt: "Terima kasih telah berbelanja di Warung Sembako Makmur!",
+  footer_receipt: "Terima kasih telah berbelanja!",
 };
 
 export const currentUser: User = {

@@ -347,7 +347,7 @@ export default function KasirPage() {
                   <p className="text-center text-amber-600 font-bold mt-1">* BELUM LUNAS *</p>
                 )}
                 <hr className="my-2 border-slate-200" />
-                <p className="text-center text-xs text-slate-400 mt-2">{storeSettings.footer_receipt}</p>
+                <p className="text-center text-xs text-slate-400 mt-2">{storeSettings.footer_receipt && !storeSettings.footer_receipt.includes("Makmur") ? storeSettings.footer_receipt : ("Terima kasih telah berbelanja di " + storeSettings.store_name + "!")}</p>
               </div>
 
               <div className="flex gap-2 mt-4">

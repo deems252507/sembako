@@ -3,16 +3,21 @@ import { useState } from "react";
 import Header from "@/components/Header";
 import { useStore } from "@/store/useStore";
 import { formatRupiah } from "@/lib/utils";
-import { Plus, X } from "lucide-react";
+import { Plus, X, Eye, Trash2 } from "lucide-react";
 
 export default function PembelianPage() {
   const { purchases, suppliers, products, addPurchase } = useStore();
+  const [localPurchases, setLocalPurchases] = useState(purchases);
   const [showForm, setShowForm] = useState(false);
+  const [detail, setDetail] = useState<typeof purchases[0] | null>(null);
   const [supplier, setSupplier] = useState("");
   const [status, setStatus] = useState("Lunas");
   const [selectedProduct, setSelectedProduct] = useState("");
   const [qty, setQty] = useState(1);
   const [items, setItems] = useState<{ productId: string; name: string; qty: number; price: number }[]>([]);
+
+  // sync when store purchases change
+  useState(() => { setLocalPurchases(purchases); });
 
   const addItem = () => {
     const p = products.find((x) => x.id === selectedProduct);
@@ -27,10 +32,16 @@ export default function PembelianPage() {
   const handleSubmit = () => {
     if (!supplier || items.length === 0) return alert("Lengkapi data!");
     addPurchase(supplier, total, status, items.map((i) => ({ productId: i.productId, qty: i.qty, price: i.price })));
+    setLocalPurchases([{ id: Math.random().toString(36).slice(2), date: new Date().toISOString().slice(0, 10), supplier, total, status }, ...localPurchases]);
     setShowForm(false);
     setItems([]);
     setSupplier("");
     alert("Pembelian berhasil! Stok otomatis bertambah.");
+  };
+
+  const handleDelete = (id: string) => {
+    if (!confirm("Hapus data pembelian ini?")) return;
+    setLocalPurchases(localPurchases.filter((p) => p.id !== id));
   };
 
   return (
@@ -53,16 +64,23 @@ export default function PembelianPage() {
                   <th className="px-4 py-3 text-left font-medium text-slate-500">Supplier</th>
                   <th className="px-4 py-3 text-left font-medium text-slate-500">Total</th>
                   <th className="px-4 py-3 text-left font-medium text-slate-500">Status</th>
+                  <th className="px-4 py-3 text-left font-medium text-slate-500">Aksi</th>
                 </tr>
               </thead>
               <tbody>
-                {purchases.map((p) => (
+                {localPurchases.map((p) => (
                   <tr key={p.id} className="border-b border-slate-50 hover:bg-slate-50/50">
                     <td className="px-4 py-3">{p.date}</td>
                     <td className="px-4 py-3 font-medium">{p.supplier}</td>
                     <td className="px-4 py-3">{formatRupiah(p.total)}</td>
                     <td className="px-4 py-3">
-                      <span className={`badge ${p.status === "Lunas" ? "badge-success" : "badge-danger"}`}>{p.status}</span>
+                      <span className={"badge " + (p.status === "Lunas" ? "badge-success" : "badge-danger")}>{p.status}</span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex gap-1">
+                        <button onClick={() => setDetail(p)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600" title="Detail"><Eye className="h-4 w-4" /></button>
+                        <button onClick={() => handleDelete(p.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500" title="Hapus"><Trash2 className="h-4 w-4" /></button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -70,6 +88,27 @@ export default function PembelianPage() {
             </table>
           </div>
         </div>
+
+        {detail && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/40" onClick={() => setDetail(null)} />
+            <div className="relative bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-bold">Detail Pembelian</h3>
+                <button onClick={() => setDetail(null)}><X className="h-5 w-5" /></button>
+              </div>
+              <div className="space-y-3 text-sm">
+                <div className="flex justify-between"><span className="text-slate-500">Tanggal</span><span>{detail.date}</span></div>
+                <div className="flex justify-between"><span className="text-slate-500">Supplier</span><span className="font-medium">{detail.supplier}</span></div>
+                <div className="flex justify-between"><span className="text-slate-500">Total</span><span className="font-bold text-green-600">{formatRupiah(detail.total)}</span></div>
+                <div className="flex justify-between"><span className="text-slate-500">Status</span>
+                  <span className={"badge " + (detail.status === "Lunas" ? "badge-success" : "badge-danger")}>{detail.status}</span>
+                </div>
+              </div>
+              <button onClick={() => setDetail(null)} className="w-full mt-5 rounded-xl bg-green-600 py-2.5 text-sm font-bold text-white">Tutup</button>
+            </div>
+          </div>
+        )}
 
         {showForm && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">

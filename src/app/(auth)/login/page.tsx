@@ -103,9 +103,7 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <p className="text-center text-xs text-slate-400 mt-6">
-            Demo: username <strong>admin</strong> / password <strong>admin</strong>
-          </p>
+          
         </div>
       </div>
     </div>
