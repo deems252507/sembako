@@ -24,7 +24,7 @@ const menuItems = [
   { href: "/pengaturan", label: "Pengaturan", icon: Settings },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const router = useRouter();
   const { storeSettings, logout, user } = useStore();
@@ -35,7 +35,7 @@ export default function Sidebar() {
   };
 
   return (
-    <aside className="fixed left-0 top-0 z-40 h-screen w-64 bg-[#14532d] text-white flex flex-col">
+    <aside className="h-full w-64 bg-[#14532d] text-white flex flex-col lg:fixed lg:left-0 lg:top-0 lg:z-40 lg:h-screen">
       <div className="flex items-center gap-3 px-4 py-5 border-b border-white/10">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10">
           <Store className="h-5 w-5 text-green-300" />
@@ -54,6 +54,7 @@ export default function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
+              onClick={() => onNavigate?.()}
               className={
                 "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors " +
                 (isActive

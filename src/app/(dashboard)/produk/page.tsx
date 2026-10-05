@@ -42,6 +42,17 @@ export default function ProdukPage() {
 
   const handleSave = () => {
     if (!form.name || !form.sku) return alert("Nama dan SKU wajib diisi");
+    // Cegah dobel SKU / barcode
+    const skuDup = products.find(
+      (p) => p.sku.toLowerCase() === form.sku.toLowerCase() && p.id !== editId
+    );
+    if (skuDup) return alert("SKU sudah dipakai produk: " + skuDup.name);
+    if (form.barcode && form.barcode.trim()) {
+      const bcDup = products.find(
+        (p) => p.barcode && p.barcode === form.barcode.trim() && p.id !== editId
+      );
+      if (bcDup) return alert("Barcode sudah dipakai produk: " + bcDup.name);
+    }
     if (editId) updateProduct(editId, form);
     else addProduct(form);
     setShowForm(false);

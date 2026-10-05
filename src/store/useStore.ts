@@ -42,6 +42,7 @@ interface AppState {
   addToCart: (product: Product) => void;
   updateCartQty: (productId: string, qty: number) => void;
   removeFromCart: (productId: string) => void;
+  updateCartPrice: (productId: string, price: number) => void;
   clearCart: () => void;
 
   transactions: Transaction[];
@@ -159,6 +160,14 @@ export const useStore = create<AppState>()(
         })),
       removeFromCart: (productId) =>
         set((state) => ({ cart: state.cart.filter((c) => c.product.id !== productId) })),
+      updateCartPrice: (productId, price) =>
+        set((state) => ({
+          cart: state.cart.map((c) =>
+            c.product.id === productId
+              ? { ...c, product: { ...c.product, sell_price: price } }
+              : c
+          ),
+        })),
       clearCart: () => set({ cart: [] }),
 
       transactions: [],

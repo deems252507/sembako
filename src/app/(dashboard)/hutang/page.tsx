@@ -69,7 +69,6 @@ export default function HutangPage() {
     const win = window.open("", "_blank");
     if (!win) return;
 
-    // Group by customer
     const byCustomer: Record<string, typeof bonTrx> = {};
     bonTrx.forEach((t) => {
       const name = (t as any).customerName || t.customer || "Umum";
@@ -77,94 +76,280 @@ export default function HutangPage() {
       byCustomer[name].push(t);
     });
 
-    // Also include customers with sisa hutang but maybe from seed data
     let bodyHtml = "";
     const printedNames = new Set<string>();
+    let no = 0;
 
     Object.keys(byCustomer).forEach((custName) => {
       printedNames.add(custName);
       const list = byCustomer[custName];
       const custTotal = list.reduce((s, t) => s + t.total, 0);
       const phone = customers.find((c) => c.name === custName)?.phone || "-";
+      no += 1;
 
-      bodyHtml += `<div class="cust">
-        <h3>${custName} <span style="font-weight:normal;color:#666;font-size:12px">(${phone})</span></h3>`;
-
-      list.forEach((t) => {
-        const itemsRows = t.items.map((item: any) =>
+      let invBlocks = "";
+      list.forEach((t, idx) => {
+        const itemsRows = t.items.map((item: any, i: number) =>
           `<tr>
+            <td class="c">${i + 1}</td>
             <td>${item.product.name}</td>
-            <td style="text-align:center">${item.qty}</td>
-            <td style="text-align:right">${formatRupiah(item.product.sell_price)}</td>
-            <td style="text-align:right">${formatRupiah(item.product.sell_price * item.qty)}</td>
+            <td class="c">${item.qty}</td>
+            <td class="r">${formatRupiah(item.product.sell_price)}</td>
+            <td class="r">${formatRupiah(item.product.sell_price * item.qty)}</td>
           </tr>`
         ).join("");
 
-        bodyHtml += `
-        <div class="invoice">
-          <div class="inv-head">
-            <span><b>${t.invoice}</b></span>
+        invBlocks += `
+        <div class="box">
+          <div class="meta">
+            <span><b>No. ${t.invoice}</b></span>
             <span>${t.date.slice(0, 10)}</span>
             <span>Kasir: ${t.cashier}</span>
           </div>
           <table>
             <thead>
               <tr>
-                <th>Barang</th>
-                <th style="text-align:center">Qty</th>
-                <th style="text-align:right">Harga</th>
-                <th style="text-align:right">Subtotal</th>
+                <th style="width:36px">No</th>
+                <th>Nama Barang</th>
+                <th style="width:50px" class="c">Qty</th>
+                <th style="width:100px" class="r">Harga</th>
+                <th style="width:110px" class="r">Subtotal</th>
               </tr>
             </thead>
             <tbody>${itemsRows}</tbody>
+            <tfoot>
+              <tr>
+                <td colspan="4" class="r"><b>Total Bon</b></td>
+                <td class="r"><b>${formatRupiah(t.total)}</b></td>
+              </tr>
+            </tfoot>
           </table>
-          <div class="inv-total">Total Bon: <b>${formatRupiah(t.total)}</b></div>
         </div>`;
       });
 
-      bodyHtml += `<div class="cust-total">Subtotal ${custName}: <b>${formatRupiah(custTotal)}</b></div></div>`;
+      bodyHtml += `
+      <section class="cust">
+        <div class="cust-head">
+          <div>
+            <span class="badge">${no}</span>
+            <strong>${custName}</strong>
+            <span class="phone">${phone}</span>
+          </div>
+          <div class="cust-sum">Sisa: <b>${formatRupiah(custTotal)}</b></div>
+        </div>
+        ${invBlocks}
+      </section>`;
     });
 
-    // Customers with sisa hutang but no bon trx in history (seed)
     customers.filter((c) => c.sisaHutang > 0 && !printedNames.has(c.name)).forEach((c) => {
-      bodyHtml += `<div class="cust">
-        <h3>${c.name} <span style="font-weight:normal;color:#666;font-size:12px">(${c.phone})</span></h3>
-        <p style="color:#666;font-size:12px">Sisa hutang (belum ada rincian transaksi di sistem): <b>${formatRupiah(c.sisaHutang)}</b></p>
-      </div>`;
+      no += 1;
+      bodyHtml += `
+      <section class="cust">
+        <div class="cust-head">
+          <div>
+            <span class="badge">${no}</span>
+            <strong>${c.name}</strong>
+            <span class="phone">${c.phone}</span>
+          </div>
+          <div class="cust-sum">Sisa: <b>${formatRupiah(c.sisaHutang)}</b></div>
+        </div>
+        <p class="note">Belum ada rincian transaksi bon di sistem.</p>
+      </section>`;
     });
 
-    if (!bodyHtml) {
-      bodyHtml = "<p>Tidak ada data piutang/bon.</p>";
-    }
+    if (!bodyHtml) bodyHtml = '<p class="empty">Tidak ada data piutang.</p>';
 
     const grandTotal = customers.reduce((s, c) => s + c.sisaHutang, 0);
+    const tgl = new Date().toLocaleDateString("id-ID", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
 
-    win.document.write(`
-      <html><head><title>Laporan Piutang - ${storeSettings.store_name}</title>
-      <style>
-        * { box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; padding: 24px; font-size: 13px; color: #222; }
-        h1 { font-size: 18px; margin: 0 0 4px; }
-        .sub { color: #555; margin: 0 0 16px; font-size: 12px; }
-        .cust { margin-bottom: 24px; page-break-inside: avoid; }
-        .cust h3 { margin: 0 0 8px; font-size: 14px; border-bottom: 2px solid #14532d; padding-bottom: 4px; color: #14532d; }
-        .invoice { border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px; margin: 8px 0; background: #fafafa; }
-        .inv-head { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; margin-bottom: 8px; color: #444; }
-        table { width: 100%; border-collapse: collapse; font-size: 12px; }
-        th, td { border: 1px solid #e5e7eb; padding: 6px 8px; text-align: left; }
-        th { background: #f3f4f6; font-weight: 600; }
-        .inv-total { text-align: right; margin-top: 6px; font-size: 13px; }
-        .cust-total { text-align: right; font-size: 13px; margin-top: 6px; padding-top: 6px; border-top: 1px dashed #ccc; }
-        .grand { margin-top: 20px; font-size: 15px; font-weight: bold; text-align: right; padding: 12px; background: #f0fdf4; border-radius: 8px; }
-      </style></head><body>
+    win.document.write(`<!DOCTYPE html><html><head>
+<meta charset="utf-8"/>
+<title>Laporan Piutang - ${storeSettings.store_name}</title>
+<style>
+  @page { size: A4; margin: 16mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+    font-size: 11px;
+    color: #1a1a1a;
+    line-height: 1.45;
+    padding: 0;
+  }
+  .header {
+    border-bottom: 2px solid #14532d;
+    padding-bottom: 12px;
+    margin-bottom: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+  .header h1 {
+    font-size: 16px;
+    color: #14532d;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+  }
+  .header .addr {
+    font-size: 10px;
+    color: #555;
+    margin-top: 3px;
+  }
+  .header .title-right {
+    text-align: right;
+  }
+  .header .title-right .doc {
+    font-size: 13px;
+    font-weight: 700;
+    color: #14532d;
+  }
+  .header .title-right .tgl {
+    font-size: 10px;
+    color: #666;
+    margin-top: 2px;
+  }
+  .cust {
+    margin-bottom: 18px;
+    page-break-inside: avoid;
+  }
+  .cust-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 4px;
+    padding: 8px 10px;
+    margin-bottom: 8px;
+  }
+  .badge {
+    display: inline-block;
+    background: #14532d;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    width: 20px;
+    height: 20px;
+    line-height: 20px;
+    text-align: center;
+    border-radius: 50%;
+    margin-right: 8px;
+  }
+  .phone { color: #666; margin-left: 8px; font-weight: 400; }
+  .cust-sum { font-size: 11px; color: #166534; }
+  .box {
+    border: 1px solid #e5e7eb;
+    border-radius: 4px;
+    margin-bottom: 8px;
+    overflow: hidden;
+  }
+  .meta {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    background: #f8fafc;
+    padding: 6px 10px;
+    font-size: 10px;
+    color: #475569;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  th {
+    background: #f1f5f9;
+    font-weight: 600;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: #475569;
+    padding: 6px 8px;
+    border-bottom: 1px solid #e2e8f0;
+    text-align: left;
+  }
+  td {
+    padding: 5px 8px;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 11px;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  tfoot td {
+    background: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+    padding: 6px 8px;
+    font-size: 11px;
+  }
+  .c { text-align: center; }
+  .r { text-align: right; }
+  .note { color: #94a3b8; font-size: 10px; padding: 6px 0; font-style: italic; }
+  .empty { text-align: center; color: #94a3b8; padding: 32px; }
+  .footer-total {
+    margin-top: 20px;
+    border: 2px solid #14532d;
+    border-radius: 4px;
+    padding: 12px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f0fdf4;
+  }
+  .footer-total .label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #14532d;
+  }
+  .footer-total .amount {
+    font-size: 16px;
+    font-weight: 700;
+    color: #14532d;
+  }
+  .sign {
+    margin-top: 28px;
+    display: flex;
+    justify-content: flex-end;
+  }
+  .sign-box {
+    text-align: center;
+    width: 180px;
+    font-size: 10px;
+    color: #555;
+  }
+  .sign-box .space { height: 48px; }
+  .sign-box .line { border-top: 1px solid #333; margin-top: 4px; padding-top: 4px; }
+  @media print {
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head><body>
+  <div class="header">
+    <div>
       <h1>${storeSettings.store_name}</h1>
-      <p class="sub">Laporan Piutang / Bon Pelanggan — ${new Date().toLocaleDateString("id-ID")}<br/>
-      ${storeSettings.address} | ${storeSettings.phone}</p>
-      ${bodyHtml}
-      <div class="grand">Total Piutang: ${formatRupiah(grandTotal)}</div>
-      <script>window.onload=function(){window.print()}</script>
-      </body></html>
-    `);
+      <div class="addr">${storeSettings.address}</div>
+      <div class="addr">Telp/WA: ${storeSettings.phone}</div>
+    </div>
+    <div class="title-right">
+      <div class="doc">LAPORAN PIUTANG / BON</div>
+      <div class="tgl">${tgl}</div>
+    </div>
+  </div>
+
+  ${bodyHtml}
+
+  <div class="footer-total">
+    <span class="label">TOTAL PIUTANG KESELURUHAN</span>
+    <span class="amount">${formatRupiah(grandTotal)}</span>
+  </div>
+
+  <div class="sign">
+    <div class="sign-box">
+      <div>Mengetahui,</div>
+      <div class="space"></div>
+      <div class="line">(${storeSettings.store_name})</div>
+    </div>
+  </div>
+
+  <script>window.onload=function(){window.print()}</script>
+</body></html>`);
     win.document.close();
   };
 
