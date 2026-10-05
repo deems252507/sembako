@@ -31,9 +31,6 @@ interface AppState {
   storeSettings: StoreSettings;
   updateStoreSettings: (settings: Partial<StoreSettings>) => void;
   resetStoreSettings: () => void;
-  theme: "light" | "dark";
-  setTheme: (t: "light" | "dark") => void;
-  toggleTheme: () => void;
 
   products: Product[];
   addProduct: (product: Omit<Product, "id">) => void;
@@ -70,6 +67,7 @@ interface AppState {
 
   purchases: { id: string; date: string; supplier: string; total: number; status: string }[];
   addPurchase: (supplier: string, total: number, status: string, items: { productId: string; qty: number; price: number }[]) => void;
+  deletePurchase: (id: string) => void;
 
   cashBalance: number;
   cashTransactions: { id: string; date: string; keterangan: string; jenis: "masuk" | "keluar"; jumlah: number }[];
@@ -111,21 +109,6 @@ export const useStore = create<AppState>()(
       updateStoreSettings: (settings) =>
         set((state) => ({ storeSettings: { ...state.storeSettings, ...settings } })),
       resetStoreSettings: () => set({ storeSettings: { ...initialSettings } }),
-
-      theme: "light",
-      setTheme: (t) => {
-        if (typeof document !== "undefined") {
-          document.documentElement.classList.toggle("dark", t === "dark");
-        }
-        set({ theme: t });
-      },
-      toggleTheme: () => {
-        const next = get().theme === "light" ? "dark" : "light";
-        if (typeof document !== "undefined") {
-          document.documentElement.classList.toggle("dark", next === "dark");
-        }
-        set({ theme: next });
-      },
 
       products: initialProducts,
       addProduct: (product) =>
@@ -410,6 +393,10 @@ export const useStore = create<AppState>()(
           suppliers: updatedSuppliers,
         });
       },
+      deletePurchase: (id) =>
+        set((state) => ({
+          purchases: state.purchases.filter((p) => p.id !== id),
+        })),
 
       cashBalance: 2480000,
       cashTransactions: [
@@ -433,8 +420,6 @@ export const useStore = create<AppState>()(
           cashBalance:
             jenis === "masuk" ? state.cashBalance + jumlah : state.cashBalance - jumlah,
         })),
-
-
       deleteCashTransaction: (id) => {
         const state = get();
         const tx = state.cashTransactions.find((t) => t.id === id);
@@ -452,26 +437,11 @@ export const useStore = create<AppState>()(
       currentShift: {
         openedAt: "2026-10-01T07:00:00",
         initialCash: 500000,
-        status: "open",
+        status: "open" as const,
       },
       openShift: (initialCash) =>
         set({
-    
-      deleteCashTransaction: (id) => {
-        const state = get();
-        const tx = state.cashTransactions.find((t) => t.id === id);
-        if (!tx) return;
-        const newBalance =
-          tx.jenis === "masuk"
-            ? state.cashBalance - tx.jumlah
-            : state.cashBalance + tx.jumlah;
-        set({
-          cashTransactions: state.cashTransactions.filter((t) => t.id !== id),
-          cashBalance: newBalance,
-        });
-      },
-
-      currentShift: {
+          currentShift: {
             openedAt: new Date().toISOString(),
             initialCash,
             status: "open",
@@ -480,23 +450,8 @@ export const useStore = create<AppState>()(
         }),
       closeShift: () =>
         set((state) => ({
-    
-      deleteCashTransaction: (id) => {
-        const state = get();
-        const tx = state.cashTransactions.find((t) => t.id === id);
-        if (!tx) return;
-        const newBalance =
-          tx.jenis === "masuk"
-            ? state.cashBalance - tx.jumlah
-            : state.cashBalance + tx.jumlah;
-        set({
-          cashTransactions: state.cashTransactions.filter((t) => t.id !== id),
-          cashBalance: newBalance,
-        });
-      },
-
-      currentShift: state.currentShift
-            ? { ...state.currentShift, status: "closed" }
+          currentShift: state.currentShift
+            ? { ...state.currentShift, status: "closed" as const }
             : null,
         })),
 
