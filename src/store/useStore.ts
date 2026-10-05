@@ -31,6 +31,9 @@ interface AppState {
   storeSettings: StoreSettings;
   updateStoreSettings: (settings: Partial<StoreSettings>) => void;
   resetStoreSettings: () => void;
+  theme: "light" | "dark";
+  setTheme: (t: "light" | "dark") => void;
+  toggleTheme: () => void;
 
   products: Product[];
   addProduct: (product: Omit<Product, "id">) => void;
@@ -108,6 +111,21 @@ export const useStore = create<AppState>()(
       updateStoreSettings: (settings) =>
         set((state) => ({ storeSettings: { ...state.storeSettings, ...settings } })),
       resetStoreSettings: () => set({ storeSettings: { ...initialSettings } }),
+
+      theme: "light",
+      setTheme: (t) => {
+        if (typeof document !== "undefined") {
+          document.documentElement.classList.toggle("dark", t === "dark");
+        }
+        set({ theme: t });
+      },
+      toggleTheme: () => {
+        const next = get().theme === "light" ? "dark" : "light";
+        if (typeof document !== "undefined") {
+          document.documentElement.classList.toggle("dark", next === "dark");
+        }
+        set({ theme: next });
+      },
 
       products: initialProducts,
       addProduct: (product) =>

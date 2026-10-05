@@ -1,6 +1,7 @@
 "use client";
 
-import { Bell, Search, Menu } from "lucide-react";
+import { useEffect } from "react";
+import { Bell, Search, Menu, Sun, Moon } from "lucide-react";
 import { useStore } from "@/store/useStore";
 
 interface HeaderProps {
@@ -8,7 +9,11 @@ interface HeaderProps {
 }
 
 export default function Header({ title }: HeaderProps) {
-  const { user, storeSettings } = useStore();
+  const { user, storeSettings, theme, toggleTheme } = useStore();
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", theme === "dark");
+  }, [theme]);
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200 bg-white/80 backdrop-blur-md px-4 lg:px-6">
@@ -27,8 +32,8 @@ export default function Header({ title }: HeaderProps) {
         </div>
       </div>
 
-      <div className="flex items-center gap-2 sm:gap-4">
-        <div className="hidden md:flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 w-64">
+      <div className="flex items-center gap-2 sm:gap-3">
+        <div className="hidden md:flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 w-56">
           <Search className="h-4 w-4 text-slate-400" />
           <input
             type="text"
@@ -36,6 +41,19 @@ export default function Header({ title }: HeaderProps) {
             className="bg-transparent text-sm outline-none w-full placeholder:text-slate-400"
           />
         </div>
+
+        <button
+          type="button"
+          onClick={toggleTheme}
+          className="rounded-xl p-2 hover:bg-slate-100 transition-colors"
+          title={theme === "dark" ? "Mode terang" : "Mode gelap"}
+        >
+          {theme === "dark" ? (
+            <Sun className="h-5 w-5 text-amber-400" />
+          ) : (
+            <Moon className="h-5 w-5 text-slate-600" />
+          )}
+        </button>
 
         <button className="relative rounded-xl p-2 hover:bg-slate-100 transition-colors">
           <Bell className="h-5 w-5 text-slate-600" />

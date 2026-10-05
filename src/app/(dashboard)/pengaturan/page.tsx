@@ -4,7 +4,7 @@ import Header from "@/components/Header";
 import { useStore } from "@/store/useStore";
 
 export default function PengaturanPage() {
-  const { storeSettings, updateStoreSettings, resetStoreSettings } = useStore();
+  const { storeSettings, updateStoreSettings, resetStoreSettings, theme, setTheme } = useStore();
   const [form, setForm] = useState({ ...storeSettings });
   const [saved, setSaved] = useState(false);
 
@@ -109,6 +109,21 @@ export default function PengaturanPage() {
               <p className="text-center text-[11px] text-slate-400 mt-1">
                 {form.footer_receipt || ("Terima kasih telah berbelanja di " + form.store_name + "!")}
               </p>
+            </div>
+          </div>
+
+          <div className="card p-6 space-y-4 lg:col-span-2">
+            <h2 className="text-lg font-semibold">Tampilan</h2>
+            <p className="text-sm text-slate-500">Pilih mode terang atau gelap</p>
+            <div className="flex gap-3">
+              <button type="button" onClick={() => setTheme("light")}
+                className={"rounded-xl px-5 py-3 text-sm font-semibold border " + (theme === "light" ? "border-green-500 bg-green-50 text-green-700" : "border-slate-200")}>
+                Mode Terang
+              </button>
+              <button type="button" onClick={() => setTheme("dark")}
+                className={"rounded-xl px-5 py-3 text-sm font-semibold border " + (theme === "dark" ? "border-green-500 bg-green-50 text-green-700" : "border-slate-200")}>
+                Mode Gelap
+              </button>
             </div>
           </div>
         </div>

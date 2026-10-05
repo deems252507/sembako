@@ -105,6 +105,7 @@ export default function HutangPage() {
             <span><b>No. ${t.invoice}</b></span>
             <span>${t.date.slice(0, 10)}</span>
             <span>Kasir: ${t.cashier}</span>
+            <span style="color:#b91c1c;font-weight:700">BELUM LUNAS</span>
           </div>
           <table>
             <thead>

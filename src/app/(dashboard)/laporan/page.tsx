@@ -50,6 +50,7 @@ export default function LaporanPage() {
       <div>Kasir: ${trx.cashier}</div>
       <div>Pelanggan: ${trx.customerName || trx.customer || "Umum"}</div>
       <div>Metode: ${trx.isHutang ? "BON / HUTANG" : trx.payment_method}</div>
+      <div>Status: ${trx.isHutang ? "BELUM LUNAS" : "LUNAS"}</div>
       <hr>
       ${itemsHtml}
       <hr>
@@ -119,6 +120,7 @@ export default function LaporanPage() {
                   <th className="px-4 py-3 text-left font-medium text-slate-500">Pelanggan</th>
                   <th className="px-4 py-3 text-left font-medium text-slate-500">Kasir</th>
                   <th className="px-4 py-3 text-left font-medium text-slate-500">Metode</th>
+                  <th className="px-4 py-3 text-left font-medium text-slate-500">Status</th>
                   <th className="px-4 py-3 text-left font-medium text-slate-500">Total</th>
                   <th className="px-4 py-3 text-left font-medium text-slate-500">Aksi</th>
                 </tr>
@@ -126,7 +128,7 @@ export default function LaporanPage() {
               <tbody>
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-10 text-center text-slate-400">
+                    <td colSpan={8} className="px-4 py-10 text-center text-slate-400">
                       Belum ada transaksi. Lakukan penjualan di Kasir.
                     </td>
                   </tr>
@@ -142,6 +144,13 @@ export default function LaporanPage() {
                           <span className="badge badge-warning">Bon</span>
                         ) : (
                           t.payment_method
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        {(t as any).isHutang ? (
+                          <span className="badge badge-danger">Belum Lunas</span>
+                        ) : (
+                          <span className="badge badge-success">Lunas</span>
                         )}
                       </td>
                       <td className="px-4 py-3 font-medium">{formatRupiah(t.total)}</td>
@@ -180,6 +189,11 @@ export default function LaporanPage() {
                 <div className="flex justify-between"><span className="text-slate-500">Kasir</span><span>{detail.cashier}</span></div>
                 <div className="flex justify-between"><span className="text-slate-500">Pelanggan</span><span>{detail.customerName || detail.customer || "Umum"}</span></div>
                 <div className="flex justify-between"><span className="text-slate-500">Metode</span><span className="capitalize">{detail.isHutang ? "Bon / Hutang" : detail.payment_method}</span></div>
+                <div className="flex justify-between"><span className="text-slate-500">Status</span>
+                  <span className={"badge " + (detail.isHutang ? "badge-danger" : "badge-success")}>
+                    {detail.isHutang ? "Belum Lunas" : "Lunas"}
+                  </span>
+                </div>
               </div>
               <hr className="my-3" />
               <div className="space-y-2 text-sm">
