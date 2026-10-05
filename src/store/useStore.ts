@@ -50,6 +50,7 @@ interface AppState {
     amountPaid: number,
     customerName?: string
   ) => Transaction | null;
+  deleteTransaction: (id: string) => void;
 
   customers: Customer[];
   addCustomer: (name: string, phone: string) => void;
@@ -69,6 +70,7 @@ interface AppState {
   cashBalance: number;
   cashTransactions: { id: string; date: string; keterangan: string; jenis: "masuk" | "keluar"; jumlah: number }[];
   addCashTransaction: (keterangan: string, jenis: "masuk" | "keluar", jumlah: number) => void;
+  deleteCashTransaction: (id: string) => void;
 
   currentShift: { openedAt: string; initialCash: number; status: "open" | "closed" } | null;
   openShift: (initialCash: number) => void;
@@ -240,6 +242,12 @@ export const useStore = create<AppState>()(
         return transaction;
       },
 
+
+      deleteTransaction: (id) =>
+        set((state) => ({
+          transactions: state.transactions.filter((t) => t.id !== id),
+        })),
+
       customers: [
         { id: "1", name: "Bu Sari", phone: "081234567124", totalBelanja: 2450000, totalHutang: 120000, sisaHutang: 120000 },
         { id: "2", name: "Pak Ahmad", phone: "081234567878", totalBelanja: 1870000, totalHutang: 0, sisaHutang: 0 },
@@ -248,7 +256,13 @@ export const useStore = create<AppState>()(
       ],
       addCustomer: (name, phone) =>
         set((state) => ({
-          customers: [
+    
+      deleteTransaction: (id) =>
+        set((state) => ({
+          transactions: state.transactions.filter((t) => t.id !== id),
+        })),
+
+      customers: [
             ...state.customers,
             { id: generateId(), name, phone, totalBelanja: 0, totalHutang: 0, sisaHutang: 0 },
           ],
@@ -393,6 +407,21 @@ export const useStore = create<AppState>()(
             jenis === "masuk" ? state.cashBalance + jumlah : state.cashBalance - jumlah,
         })),
 
+
+      deleteCashTransaction: (id) => {
+        const state = get();
+        const tx = state.cashTransactions.find((t) => t.id === id);
+        if (!tx) return;
+        const newBalance =
+          tx.jenis === "masuk"
+            ? state.cashBalance - tx.jumlah
+            : state.cashBalance + tx.jumlah;
+        set({
+          cashTransactions: state.cashTransactions.filter((t) => t.id !== id),
+          cashBalance: newBalance,
+        });
+      },
+
       currentShift: {
         openedAt: "2026-10-01T07:00:00",
         initialCash: 500000,
@@ -400,7 +429,22 @@ export const useStore = create<AppState>()(
       },
       openShift: (initialCash) =>
         set({
-          currentShift: {
+    
+      deleteCashTransaction: (id) => {
+        const state = get();
+        const tx = state.cashTransactions.find((t) => t.id === id);
+        if (!tx) return;
+        const newBalance =
+          tx.jenis === "masuk"
+            ? state.cashBalance - tx.jumlah
+            : state.cashBalance + tx.jumlah;
+        set({
+          cashTransactions: state.cashTransactions.filter((t) => t.id !== id),
+          cashBalance: newBalance,
+        });
+      },
+
+      currentShift: {
             openedAt: new Date().toISOString(),
             initialCash,
             status: "open",
@@ -409,7 +453,22 @@ export const useStore = create<AppState>()(
         }),
       closeShift: () =>
         set((state) => ({
-          currentShift: state.currentShift
+    
+      deleteCashTransaction: (id) => {
+        const state = get();
+        const tx = state.cashTransactions.find((t) => t.id === id);
+        if (!tx) return;
+        const newBalance =
+          tx.jenis === "masuk"
+            ? state.cashBalance - tx.jumlah
+            : state.cashBalance + tx.jumlah;
+        set({
+          cashTransactions: state.cashTransactions.filter((t) => t.id !== id),
+          cashBalance: newBalance,
+        });
+      },
+
+      currentShift: state.currentShift
             ? { ...state.currentShift, status: "closed" }
             : null,
         })),

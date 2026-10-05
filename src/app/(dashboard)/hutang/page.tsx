@@ -7,7 +7,7 @@ import { X, Plus, Pencil, Trash2, Printer, Search } from "lucide-react";
 
 export default function HutangPage() {
   const {
-    customers, suppliers,
+    customers, suppliers, transactions,
     bayarHutangPelanggan, bayarHutangSupplier,
     addCustomer, updateCustomer, deleteCustomer,
     storeSettings,
@@ -65,33 +65,109 @@ export default function HutangPage() {
   };
 
   const handlePrintPiutang = () => {
-    const list = piutang;
+    const bonTrx = transactions.filter((t) => (t as any).isHutang);
     const win = window.open("", "_blank");
     if (!win) return;
-    const rows = list.map((c) =>
-      `<tr><td>${c.name}</td><td>${c.phone}</td><td style="text-align:right">${formatRupiah(c.sisaHutang)}</td></tr>`
-    ).join("");
+
+    // Group by customer
+    const byCustomer: Record<string, typeof bonTrx> = {};
+    bonTrx.forEach((t) => {
+      const name = (t as any).customerName || t.customer || "Umum";
+      if (!byCustomer[name]) byCustomer[name] = [];
+      byCustomer[name].push(t);
+    });
+
+    // Also include customers with sisa hutang but maybe from seed data
+    let bodyHtml = "";
+    const printedNames = new Set<string>();
+
+    Object.keys(byCustomer).forEach((custName) => {
+      printedNames.add(custName);
+      const list = byCustomer[custName];
+      const custTotal = list.reduce((s, t) => s + t.total, 0);
+      const phone = customers.find((c) => c.name === custName)?.phone || "-";
+
+      bodyHtml += `<div class="cust">
+        <h3>${custName} <span style="font-weight:normal;color:#666;font-size:12px">(${phone})</span></h3>`;
+
+      list.forEach((t) => {
+        const itemsRows = t.items.map((item: any) =>
+          `<tr>
+            <td>${item.product.name}</td>
+            <td style="text-align:center">${item.qty}</td>
+            <td style="text-align:right">${formatRupiah(item.product.sell_price)}</td>
+            <td style="text-align:right">${formatRupiah(item.product.sell_price * item.qty)}</td>
+          </tr>`
+        ).join("");
+
+        bodyHtml += `
+        <div class="invoice">
+          <div class="inv-head">
+            <span><b>${t.invoice}</b></span>
+            <span>${t.date.slice(0, 10)}</span>
+            <span>Kasir: ${t.cashier}</span>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Barang</th>
+                <th style="text-align:center">Qty</th>
+                <th style="text-align:right">Harga</th>
+                <th style="text-align:right">Subtotal</th>
+              </tr>
+            </thead>
+            <tbody>${itemsRows}</tbody>
+          </table>
+          <div class="inv-total">Total Bon: <b>${formatRupiah(t.total)}</b></div>
+        </div>`;
+      });
+
+      bodyHtml += `<div class="cust-total">Subtotal ${custName}: <b>${formatRupiah(custTotal)}</b></div></div>`;
+    });
+
+    // Customers with sisa hutang but no bon trx in history (seed)
+    customers.filter((c) => c.sisaHutang > 0 && !printedNames.has(c.name)).forEach((c) => {
+      bodyHtml += `<div class="cust">
+        <h3>${c.name} <span style="font-weight:normal;color:#666;font-size:12px">(${c.phone})</span></h3>
+        <p style="color:#666;font-size:12px">Sisa hutang (belum ada rincian transaksi di sistem): <b>${formatRupiah(c.sisaHutang)}</b></p>
+      </div>`;
+    });
+
+    if (!bodyHtml) {
+      bodyHtml = "<p>Tidak ada data piutang/bon.</p>";
+    }
+
+    const grandTotal = customers.reduce((s, c) => s + c.sisaHutang, 0);
+
     win.document.write(`
       <html><head><title>Laporan Piutang - ${storeSettings.store_name}</title>
       <style>
-        body{font-family:Arial,sans-serif;padding:24px;font-size:13px}
-        h1{font-size:18px;margin:0} h2{font-size:14px;color:#555;margin:4px 0 16px}
-        table{width:100%;border-collapse:collapse} th,td{border:1px solid #ddd;padding:8px;text-align:left}
-        th{background:#f5f5f5} .total{font-weight:bold;margin-top:12px}
+        * { box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; padding: 24px; font-size: 13px; color: #222; }
+        h1 { font-size: 18px; margin: 0 0 4px; }
+        .sub { color: #555; margin: 0 0 16px; font-size: 12px; }
+        .cust { margin-bottom: 24px; page-break-inside: avoid; }
+        .cust h3 { margin: 0 0 8px; font-size: 14px; border-bottom: 2px solid #14532d; padding-bottom: 4px; color: #14532d; }
+        .invoice { border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px; margin: 8px 0; background: #fafafa; }
+        .inv-head { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; margin-bottom: 8px; color: #444; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        th, td { border: 1px solid #e5e7eb; padding: 6px 8px; text-align: left; }
+        th { background: #f3f4f6; font-weight: 600; }
+        .inv-total { text-align: right; margin-top: 6px; font-size: 13px; }
+        .cust-total { text-align: right; font-size: 13px; margin-top: 6px; padding-top: 6px; border-top: 1px dashed #ccc; }
+        .grand { margin-top: 20px; font-size: 15px; font-weight: bold; text-align: right; padding: 12px; background: #f0fdf4; border-radius: 8px; }
       </style></head><body>
       <h1>${storeSettings.store_name}</h1>
-      <h2>Laporan Piutang Pelanggan — ${new Date().toLocaleDateString("id-ID")}</h2>
-      <p>${storeSettings.address} | ${storeSettings.phone}</p>
-      <table>
-        <thead><tr><th>Nama</th><th>No HP</th><th>Sisa Hutang</th></tr></thead>
-        <tbody>${rows || "<tr><td colspan=3>Tidak ada data</td></tr>"}</tbody>
-      </table>
-      <p class="total">Total Piutang: ${formatRupiah(list.reduce((s,c)=>s+c.sisaHutang,0))}</p>
+      <p class="sub">Laporan Piutang / Bon Pelanggan — ${new Date().toLocaleDateString("id-ID")}<br/>
+      ${storeSettings.address} | ${storeSettings.phone}</p>
+      ${bodyHtml}
+      <div class="grand">Total Piutang: ${formatRupiah(grandTotal)}</div>
       <script>window.onload=function(){window.print()}</script>
       </body></html>
     `);
     win.document.close();
   };
+
 
   return (
     <>
@@ -275,17 +351,42 @@ export default function HutangPage() {
         {detailCust && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/40" onClick={() => setDetailCust(null)} />
-            <div className="relative bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
+            <div className="relative bg-white rounded-2xl p-6 w-full max-w-lg shadow-xl max-h-[90vh] overflow-y-auto">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-bold">Detail Pelanggan</h3>
                 <button onClick={() => setDetailCust(null)}><X className="h-5 w-5" /></button>
               </div>
-              <div className="space-y-3 text-sm">
+              <div className="space-y-2 text-sm mb-4">
                 <div className="flex justify-between"><span className="text-slate-500">Nama</span><span className="font-medium">{detailCust.name}</span></div>
                 <div className="flex justify-between"><span className="text-slate-500">No HP</span><span>{detailCust.phone}</span></div>
-                <div className="flex justify-between"><span className="text-slate-500">Total Belanja</span><span>{formatRupiah(detailCust.totalBelanja)}</span></div>
-                <div className="flex justify-between"><span className="text-slate-500">Total Hutang</span><span>{formatRupiah(detailCust.totalHutang)}</span></div>
                 <div className="flex justify-between"><span className="text-slate-500">Sisa Hutang</span><span className="font-bold text-red-600">{formatRupiah(detailCust.sisaHutang)}</span></div>
+              </div>
+              <h4 className="text-sm font-semibold mb-2 text-slate-700">Rincian Bon</h4>
+              <div className="space-y-3">
+                {transactions.filter((t) => (t as any).isHutang && ((t as any).customerName === detailCust.name || t.customer === detailCust.name)).length === 0 ? (
+                  <p className="text-sm text-slate-400">Belum ada rincian transaksi bon di sistem.</p>
+                ) : (
+                  transactions
+                    .filter((t) => (t as any).isHutang && ((t as any).customerName === detailCust.name || t.customer === detailCust.name))
+                    .map((t) => (
+                      <div key={t.id} className="rounded-xl border border-slate-200 p-3 text-sm">
+                        <div className="flex justify-between mb-2">
+                          <span className="font-medium text-green-600">{t.invoice}</span>
+                          <span className="text-slate-400 text-xs">{t.date.slice(0, 10)}</span>
+                        </div>
+                        {t.items.map((item: any) => (
+                          <div key={item.product.id} className="flex justify-between text-slate-600 py-0.5">
+                            <span>{item.product.name} x{item.qty}</span>
+                            <span>{formatRupiah(item.product.sell_price * item.qty)}</span>
+                          </div>
+                        ))}
+                        <div className="flex justify-between font-bold mt-2 pt-2 border-t border-slate-100">
+                          <span>Total Bon</span>
+                          <span className="text-red-600">{formatRupiah(t.total)}</span>
+                        </div>
+                      </div>
+                    ))
+                )}
               </div>
               <div className="flex gap-2 mt-5">
                 {detailCust.sisaHutang > 0 && (

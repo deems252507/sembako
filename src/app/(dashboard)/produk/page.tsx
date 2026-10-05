@@ -3,7 +3,8 @@ import { useState } from "react";
 import Header from "@/components/Header";
 import { useStore } from "@/store/useStore";
 import { formatRupiah } from "@/lib/utils";
-import { Package, Plus, Search, X, Pencil, Trash2, Eye, ImagePlus } from "lucide-react";
+import { Package, Plus, Search, X, Pencil, Trash2, Eye, ImagePlus, Camera } from "lucide-react";
+import BarcodeScanner from "@/components/BarcodeScanner";
 import { Product } from "@/types";
 
 export default function ProdukPage() {
@@ -12,7 +13,8 @@ export default function ProdukPage() {
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [detail, setDetail] = useState<Product | null>(null);
-  const emptyForm = { name: "", sku: "", category: "Sembako", unit: "pcs", buy_price: 0, sell_price: 0, stock: 0, min_stock: 5, status: "aktif" as const, image: "" };
+  const [showScanner, setShowScanner] = useState(false);
+  const emptyForm = { name: "", sku: "", barcode: "", category: "Sembako", unit: "pcs", buy_price: 0, sell_price: 0, stock: 0, min_stock: 5, status: "aktif" as const, image: "" };
   const [form, setForm] = useState(emptyForm);
 
   const filtered = products.filter((p) =>
@@ -22,7 +24,7 @@ export default function ProdukPage() {
   const openAdd = () => { setEditId(null); setForm(emptyForm); setShowForm(true); };
   const openEdit = (p: Product) => {
     setEditId(p.id);
-    setForm({ name: p.name, sku: p.sku, category: p.category, unit: p.unit, buy_price: p.buy_price, sell_price: p.sell_price, stock: p.stock, min_stock: p.min_stock, status: p.status as "aktif", image: p.image || "" });
+    setForm({ name: p.name, sku: p.sku, barcode: p.barcode || "", category: p.category, unit: p.unit, buy_price: p.buy_price, sell_price: p.sell_price, stock: p.stock, min_stock: p.min_stock, status: p.status as "aktif", image: p.image || "" });
     setShowForm(true);
   };
 
@@ -161,11 +163,21 @@ export default function ProdukPage() {
                     <input value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1">Kategori</label>
-                    <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm">
-                      <option>Sembako</option><option>Minuman</option><option>Makanan</option><option>Perawatan</option><option>Lainnya</option>
-                    </select>
+                    <label className="block text-sm font-medium mb-1">Barcode</label>
+                    <div className="flex gap-2">
+                      <input value={form.barcode || ""} onChange={(e) => setForm({ ...form, barcode: e.target.value })} placeholder="Scan / ketik barcode" className="flex-1 rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+                      <button type="button" onClick={() => setShowScanner(true)}
+                        className="shrink-0 rounded-xl bg-green-600 px-3 text-white hover:bg-green-700" title="Scan kamera">
+                        <Camera className="h-5 w-5" />
+                      </button>
+                    </div>
                   </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Kategori</label>
+                  <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm">
+                    <option>Sembako</option><option>Minuman</option><option>Makanan</option><option>Perawatan</option><option>Lainnya</option>
+                  </select>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
@@ -211,6 +223,7 @@ export default function ProdukPage() {
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between"><span className="text-slate-500">Nama</span><span className="font-medium">{detail.name}</span></div>
                 <div className="flex justify-between"><span className="text-slate-500">SKU</span><span>{detail.sku}</span></div>
+                <div className="flex justify-between"><span className="text-slate-500">Barcode</span><span>{detail.barcode || "-"}</span></div>
                 <div className="flex justify-between"><span className="text-slate-500">Kategori</span><span>{detail.category}</span></div>
                 <div className="flex justify-between"><span className="text-slate-500">Harga Beli</span><span>{formatRupiah(detail.buy_price)}</span></div>
                 <div className="flex justify-between"><span className="text-slate-500">Harga Jual</span><span className="font-medium text-green-600">{formatRupiah(detail.sell_price)}</span></div>
@@ -223,7 +236,17 @@ export default function ProdukPage() {
             </div>
           </div>
         )}
+      {showScanner && (
+        <BarcodeScanner
+          onScan={(code) => {
+            setForm((f) => ({ ...f, barcode: code }));
+            setShowScanner(false);
+          }}
+          onClose={() => setShowScanner(false)}
+        />
+      )}
       </main>
     </>
   );
 }
+

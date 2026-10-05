@@ -6,8 +6,9 @@ import { useStore } from "@/store/useStore";
 import { formatRupiah } from "@/lib/utils";
 import { categories } from "@/lib/mock-data";
 import {
-  Search, Plus, Minus, Trash2, Package, X, ShoppingCart, CheckCircle, Printer,
+  Search, Plus, Minus, Trash2, Package, X, ShoppingCart, CheckCircle, Printer, Camera,
 } from "lucide-react";
+import BarcodeScanner from "@/components/BarcodeScanner";
 
 export default function KasirPage() {
   const {
@@ -24,6 +25,7 @@ export default function KasirPage() {
   const [lastTransaction, setLastTransaction] = useState<any>(null);
   const [showSuccess, setShowSuccess] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState("");
+  const [showScanner, setShowScanner] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
 
   const filteredProducts = useMemo(() => {
@@ -36,6 +38,34 @@ export default function KasirPage() {
       return matchSearch && matchCategory && p.status === "aktif";
     });
   }, [products, search, activeCategory]);
+
+  // Scan barcode: Enter → cari barcode tepat → langsung masuk keranjang
+  const handleBarcodeScan = (value: string) => {
+    const code = value.trim();
+    if (!code) return;
+    const found = products.find(
+      (p) =>
+        p.status === "aktif" &&
+        (p.barcode === code || p.sku === code || p.barcode?.endsWith(code))
+    );
+    if (found) {
+      if (found.stock <= 0) {
+        alert("Stok " + found.name + " habis!");
+        return;
+      }
+      addToCart(found);
+      setSearch("");
+    } else {
+      // partial search tetap jalan lewat onChange
+    }
+  };
+
+  const onSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleBarcodeScan(search);
+    }
+  };
 
   const subtotal = cart.reduce((sum, item) => sum + item.product.sell_price * item.qty - item.discount, 0);
   const total = subtotal;
@@ -94,12 +124,22 @@ export default function KasirPage() {
       <main className="flex h-[calc(100vh-4rem)]">
         <div className="flex-1 flex flex-col overflow-hidden">
           <div className="p-4 space-y-3 border-b border-slate-200 bg-white">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-              <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
-                placeholder="Cari produk, nama, barcode, SKU..."
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-4 text-sm outline-none focus:border-green-400 focus:ring-2 focus:ring-green-100" />
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
+                  onKeyDown={onSearchKeyDown}
+                  autoFocus
+                  placeholder="Scan barcode / cari nama / SKU lalu Enter..."
+                  className="w-full rounded-xl border-2 border-green-200 bg-green-50/50 py-3 pl-10 pr-4 text-sm outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100" />
+              </div>
+              <button type="button" onClick={() => setShowScanner(true)}
+                className="shrink-0 flex items-center gap-2 rounded-xl bg-green-600 px-4 text-white text-sm font-semibold hover:bg-green-700">
+                <Camera className="h-5 w-5" />
+                <span className="hidden sm:inline">Kamera</span>
+              </button>
             </div>
+            <p className="text-[11px] text-slate-400 -mt-1">Scanner USB / tombol Kamera HP → produk langsung masuk keranjang</p>
             <div className="flex gap-2 overflow-x-auto pb-1">
               {categories.map((cat) => (
                 <button key={cat} onClick={() => setActiveCategory(cat)}
@@ -363,7 +403,16 @@ export default function KasirPage() {
             </div>
           </div>
         )}
+      {showScanner && (
+        <BarcodeScanner
+          onScan={(code) => {
+            handleBarcodeScan(code);
+          }}
+          onClose={() => setShowScanner(false)}
+        />
+      )}
       </main>
     </>
   );
 }
+

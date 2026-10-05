@@ -3,10 +3,10 @@ import { useState, useMemo } from "react";
 import Header from "@/components/Header";
 import { useStore } from "@/store/useStore";
 import { formatRupiah } from "@/lib/utils";
-import { X, Eye, Printer, Search } from "lucide-react";
+import { X, Eye, Printer, Search, Trash2 } from "lucide-react";
 
 export default function LaporanPage() {
-  const { transactions, storeSettings } = useStore();
+  const { transactions, storeSettings, deleteTransaction } = useStore();
   const [search, setSearch] = useState("");
   const [filterDate, setFilterDate] = useState("");
   const [detail, setDetail] = useState<any>(null);
@@ -146,12 +146,15 @@ export default function LaporanPage() {
                       </td>
                       <td className="px-4 py-3 font-medium">{formatRupiah(t.total)}</td>
                       <td className="px-4 py-3">
-                        <div className="flex gap-2">
+                        <div className="flex gap-1">
                           <button onClick={() => setDetail(t)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600" title="Detail">
                             <Eye className="h-4 w-4" />
                           </button>
                           <button onClick={() => handlePrintStruk(t)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600" title="Cetak">
                             <Printer className="h-4 w-4" />
+                          </button>
+                          <button onClick={() => { if (confirm("Hapus transaksi " + t.invoice + "?")) deleteTransaction(t.id); }} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500" title="Hapus">
+                            <Trash2 className="h-4 w-4" />
                           </button>
                         </div>
                       </td>

@@ -3,10 +3,10 @@ import { useState } from "react";
 import Header from "@/components/Header";
 import { useStore } from "@/store/useStore";
 import { formatRupiah } from "@/lib/utils";
-import { Plus, X, ArrowDownLeft, ArrowUpRight, Printer } from "lucide-react";
+import { Plus, X, ArrowDownLeft, ArrowUpRight, Printer, Trash2 } from "lucide-react";
 
 export default function KeuanganPage() {
-  const { cashBalance, cashTransactions, addCashTransaction, storeSettings, transactions } = useStore();
+  const { cashBalance, cashTransactions, addCashTransaction, deleteCashTransaction, storeSettings, transactions } = useStore();
   const [showForm, setShowForm] = useState(false);
   const [jenis, setJenis] = useState<"masuk" | "keluar">("masuk");
   const [keterangan, setKeterangan] = useState("");
@@ -128,6 +128,7 @@ export default function KeuanganPage() {
                   <th className="px-4 py-3 text-left font-medium text-slate-500">Keterangan</th>
                   <th className="px-4 py-3 text-left font-medium text-slate-500">Jenis</th>
                   <th className="px-4 py-3 text-left font-medium text-slate-500">Jumlah</th>
+                  <th className="px-4 py-3 text-left font-medium text-slate-500">Aksi</th>
                 </tr>
               </thead>
               <tbody>
@@ -143,6 +144,12 @@ export default function KeuanganPage() {
                     </td>
                     <td className={"px-4 py-3 font-medium " + (t.jenis === "masuk" ? "text-green-600" : "text-red-600")}>
                       {t.jenis === "masuk" ? "+" : "-"}{formatRupiah(t.jumlah)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <button onClick={() => { if (confirm("Hapus transaksi kas ini?")) deleteCashTransaction(t.id); }}
+                        className="p-1.5 rounded-lg hover:bg-red-50 text-red-500" title="Hapus">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                     </td>
                   </tr>
                 ))}
