@@ -8,7 +8,7 @@ import { X } from "lucide-react";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const { isLoggedIn } = useStore();
+  const { isLoggedIn, updateStoreSettings } = useStore();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
@@ -16,6 +16,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       router.replace("/login");
     }
   }, [isLoggedIn, router]);
+
+  // Sinkron nama toko dari database (Neon)
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    fetch("/api/settings")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data?.store_name) {
+          updateStoreSettings({
+            store_name: data.store_name,
+            address: data.address || "",
+            phone: data.phone || "",
+            whatsapp: data.whatsapp || "",
+            email: data.email || "",
+            slogan: data.slogan || "",
+            footer_receipt: data.footer_receipt || "",
+            logo: data.logo || null,
+          });
+        }
+      })
+      .catch(() => {});
+  }, [isLoggedIn, updateStoreSettings]);
 
   // Close drawer on route change via custom event from links
   useEffect(() => {

@@ -7,13 +7,53 @@ export default function PengaturanPage() {
   const { storeSettings, updateStoreSettings, resetStoreSettings, theme, setTheme } = useStore();
   const [form, setForm] = useState({ ...storeSettings });
   const [saved, setSaved] = useState(false);
+  const [dbStatus, setDbStatus] = useState<"loading" | "ok" | "local" | "error">("loading");
+  const [msg, setMsg] = useState("");
 
   useEffect(() => {
     setForm({ ...storeSettings });
   }, [storeSettings]);
 
-  const handleSave = () => {
-    // Auto-update footer if still contains old default shop name
+  // Load from database (Neon) if available
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/settings");
+        if (!res.ok) {
+          if (!cancelled) {
+            setDbStatus("local");
+            setMsg("Database belum terhubung. Data hanya tersimpan di perangkat ini.");
+          }
+          return;
+        }
+        const data = await res.json();
+        if (cancelled) return;
+        if (data && data.store_name) {
+          updateStoreSettings({
+            store_name: data.store_name,
+            address: data.address || "",
+            phone: data.phone || "",
+            whatsapp: data.whatsapp || "",
+            email: data.email || "",
+            slogan: data.slogan || "",
+            footer_receipt: data.footer_receipt || "",
+            logo: data.logo || null,
+          });
+          setDbStatus("ok");
+          setMsg("Terhubung ke database. Pengaturan sinkron antar perangkat.");
+        }
+      } catch {
+        if (!cancelled) {
+          setDbStatus("local");
+          setMsg("Database belum terhubung. Data hanya di perangkat ini.");
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [updateStoreSettings]);
+
+  const handleSave = async () => {
     let footer = form.footer_receipt || "";
     if (footer.includes("Warung Sembako Makmur") || footer.includes("Makmur")) {
       footer = "Terima kasih telah berbelanja di " + form.store_name + "!";
@@ -21,10 +61,30 @@ export default function PengaturanPage() {
     if (!footer.trim()) {
       footer = "Terima kasih telah berbelanja di " + form.store_name + "!";
     }
-    updateStoreSettings({ ...form, footer_receipt: footer });
+    const payload = { ...form, footer_receipt: footer };
+    updateStoreSettings(payload);
     setForm((f) => ({ ...f, footer_receipt: footer }));
+
+    // Save to database
+    try {
+      const res = await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        setDbStatus("ok");
+        setMsg("Tersimpan ke database. Nama toko sama di semua perangkat.");
+      } else {
+        setDbStatus("local");
+        setMsg("Tersimpan di perangkat ini saja (database belum siap).");
+      }
+    } catch {
+      setDbStatus("local");
+      setMsg("Tersimpan di perangkat ini saja (database belum siap).");
+    }
     setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    setTimeout(() => setSaved(false), 2500);
   };
 
   const handleReset = () => {
@@ -38,7 +98,18 @@ export default function PengaturanPage() {
   return (
     <>
       <Header title="Pengaturan Toko" />
-      <main className="p-4 lg:p-6">
+      <main className="p-4 lg:p-6 space-y-4">
+        <div className={
+          "rounded-xl px-4 py-3 text-sm border " +
+          (dbStatus === "ok"
+            ? "bg-green-50 border-green-200 text-green-800"
+            : dbStatus === "loading"
+            ? "bg-slate-50 border-slate-200 text-slate-600"
+            : "bg-amber-50 border-amber-200 text-amber-800")
+        }>
+          {dbStatus === "loading" ? "Memeriksa database..." : msg}
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="card p-6 space-y-4">
             <h2 className="text-lg font-semibold">Profil Toko</h2>
@@ -75,18 +146,16 @@ export default function PengaturanPage() {
             <div>
               <label className="block text-sm font-medium mb-1">Footer Struk</label>
               <textarea value={form.footer_receipt || ""} onChange={(e) => setForm({ ...form, footer_receipt: e.target.value })}
-                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" rows={2}
-                placeholder="Terima kasih telah berbelanja di ..." />
-              <p className="text-xs text-slate-400 mt-1">Ubah juga teks footer ini supaya struk tidak masih tulis Makmur</p>
+                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" rows={2} />
             </div>
             <div className="flex gap-3">
               <button onClick={handleSave}
                 className="flex-1 rounded-xl bg-green-600 py-3 text-sm font-bold text-white hover:bg-green-700">
-                {saved ? "Tersimpan!" : "Simpan Perubahan"}
+                {saved ? "Tersimpan!" : "Simpan ke Database"}
               </button>
               <button onClick={handleReset}
                 className="rounded-xl border border-slate-200 px-4 py-3 text-sm font-medium hover:bg-slate-50">
-                Reset Default
+                Reset
               </button>
             </div>
           </div>
@@ -94,19 +163,15 @@ export default function PengaturanPage() {
           <div className="card p-6">
             <h2 className="text-lg font-semibold mb-4">Preview Struk</h2>
             <div className="border border-dashed border-slate-300 rounded-xl p-5 text-sm font-mono bg-white max-w-xs mx-auto shadow-sm">
-              <p className="text-center font-bold text-base tracking-wide">{form.store_name}</p>
+              <p className="text-center font-bold text-base">{form.store_name}</p>
               <p className="text-center text-[11px] text-slate-500 mt-0.5">{form.address}</p>
               <p className="text-center text-[11px] text-slate-500">{form.phone}</p>
               <div className="border-t border-dashed border-slate-300 my-3" />
               <p className="text-xs">Invoice: INV-20261005-0001</p>
-              <p className="text-xs">Kasir: Admin</p>
-              <div className="border-t border-dashed border-slate-300 my-3" />
-              <div className="flex justify-between text-xs"><span>Beras 5 Kg x1</span><span>Rp 65.000</span></div>
-              <div className="flex justify-between text-xs mt-1"><span>Minyak Goreng x2</span><span>Rp 36.000</span></div>
               <div className="border-t border-dashed border-slate-300 my-3" />
               <div className="flex justify-between font-bold text-sm"><span>Total</span><span>Rp 101.000</span></div>
               <div className="border-t border-dashed border-slate-300 my-3" />
-              <p className="text-center text-[11px] text-slate-400 mt-1">
+              <p className="text-center text-[11px] text-slate-400">
                 {form.footer_receipt || ("Terima kasih telah berbelanja di " + form.store_name + "!")}
               </p>
             </div>
@@ -114,7 +179,6 @@ export default function PengaturanPage() {
 
           <div className="card p-6 space-y-4 lg:col-span-2">
             <h2 className="text-lg font-semibold">Tampilan</h2>
-            <p className="text-sm text-slate-500">Pilih mode terang atau gelap</p>
             <div className="flex gap-3">
               <button type="button" onClick={() => setTheme("light")}
                 className={"rounded-xl px-5 py-3 text-sm font-semibold border " + (theme === "light" ? "border-green-500 bg-green-50 text-green-700" : "border-slate-200")}>
