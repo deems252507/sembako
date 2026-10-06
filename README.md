@@ -1,4 +1,4 @@
-# Warung Sembako POS
+# Sistem Manajemen Toko
 
 Web kasir (TanStack Start + Vite). Bukan Next.js dan bukan Prisma.
 
