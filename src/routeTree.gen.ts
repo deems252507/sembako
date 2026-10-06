@@ -12,6 +12,8 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as LupaPasswordRouteImport } from './routes/lupa-password'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
 import { Route as AppHutangRouteImport } from './routes/_app/hutang'
 import { Route as AppKasirRouteImport } from './routes/_app/kasir'
@@ -39,6 +41,16 @@ const AppRoute = AppRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LupaPasswordRoute = LupaPasswordRouteImport.update({
+  id: '/lupa-password',
+  path: '/lupa-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppDashboardRoute = AppDashboardRouteImport.update({
@@ -115,6 +127,10 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/lupa-password': typeof LupaPasswordRoute
+  '/reset-password': typeof ResetPasswordRoute
+  '/lupa-password': typeof LupaPasswordRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/dashboard': typeof AppDashboardRoute
   '/hutang': typeof AppHutangRoute
   '/kasir': typeof AppKasirRoute
@@ -133,6 +149,8 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/lupa-password': typeof LupaPasswordRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/dashboard': typeof AppDashboardRoute
   '/hutang': typeof AppHutangRoute
   '/kasir': typeof AppKasirRoute
@@ -153,6 +171,8 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
+  '/lupa-password': typeof LupaPasswordRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/_app/dashboard': typeof AppDashboardRoute
   '/_app/hutang': typeof AppHutangRoute
   '/_app/kasir': typeof AppKasirRoute
@@ -173,6 +193,8 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/login'
+    | '/lupa-password'
+    | '/reset-password'
     | '/dashboard'
     | '/hutang'
     | '/kasir'
@@ -191,6 +213,8 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/login'
+    | '/lupa-password'
+    | '/reset-password'
     | '/dashboard'
     | '/hutang'
     | '/kasir'
@@ -210,6 +234,8 @@ export interface FileRouteTypes {
     | '/'
     | '/_app'
     | '/login'
+    | '/lupa-password'
+    | '/reset-password'
     | '/_app/dashboard'
     | '/_app/hutang'
     | '/_app/kasir'
@@ -230,6 +256,8 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
   LoginRoute: typeof LoginRoute
+  LupaPasswordRoute: typeof LupaPasswordRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
 
@@ -254,6 +282,20 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/lupa-password': {
+      id: '/lupa-password'
+      path: '/lupa-password'
+      fullPath: '/lupa-password'
+      preLoaderRoute: typeof LupaPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app/dashboard': {
@@ -395,6 +437,8 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
   LoginRoute: LoginRoute,
+  LupaPasswordRoute: LupaPasswordRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
 }
 export const routeTree = rootRouteImport
