@@ -4,7 +4,7 @@ import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import { Toaster } from "sonner";
 import appCss from "../styles.css?url";
 
-const APP_NAME = "Warung Makmur";
+const APP_NAME = "SISTEM MANAJEMEN TOKO";
 
 export const Route = createRootRoute({
   head: () => ({
@@ -15,7 +15,7 @@ export const Route = createRootRoute({
       { name: "theme-color", content: "#12241b" },
       {
         name: "description",
-        content: "Kasir, stok, dan pembelian warung — rapi dari laci sampai gudang.",
+        content: "Kelola bisnis Anda dengan lebih mudah — penjualan, stok, kas, pembelian, dan laporan dalam satu sistem.",
       },
     ],
     links: [
