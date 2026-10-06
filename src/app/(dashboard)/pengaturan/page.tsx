@@ -55,9 +55,6 @@ export default function PengaturanPage() {
 
   const handleSave = async () => {
     let footer = form.footer_receipt || "";
-    if (footer.includes("Warung Sembako Makmur") || footer.includes("Makmur")) {
-      footer = "Terima kasih telah berbelanja di " + form.store_name + "!";
-    }
     if (!footer.trim()) {
       footer = "Terima kasih telah berbelanja di " + form.store_name + "!";
     }
