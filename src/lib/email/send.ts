@@ -54,8 +54,9 @@ export async function sendEmail(input: SendEmailInput): Promise<{ ok: boolean; e
     if (!res.ok) {
       const body = await res.text();
       console.error("[email] Resend error", res.status, body);
-      return { ok: false, error: `Gagal kirim email (${res.status})` };
+      return { ok: false, error: `Gagal kirim email (${res.status}): ${body.slice(0, 300)}` };
     }
+    console.info("[email] Resend accepted", { to: input.to, subject: input.subject });
     return { ok: true };
   } catch (err) {
     console.error("[email] send failed", err);

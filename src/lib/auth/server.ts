@@ -224,23 +224,26 @@ export const auth = betterAuth({
             url: string;
             token: string;
           }) => {
-            // Jangan await — hindari timing attack (docs Better Auth).
-            void (async () => {
-              try {
-                const { sendEmail, resetPasswordEmailHtml } = await import("../email/send");
-                await sendEmail({
-                  to: user.email,
-                  subject: "Reset kata sandi akun Anda",
-                  html: resetPasswordEmailHtml({
-                    name: user.name || "",
-                    url,
-                  }),
-                  text: `Reset kata sandi: ${url}`,
-                });
-              } catch (err) {
-                console.error("[auth] sendResetPassword failed", err);
+            // WAJIB await di Vercel/serverless — kalau void, proses mati sebelum email terkirim.
+            try {
+              const { sendEmail, resetPasswordEmailHtml } = await import("../email/send");
+              const result = await sendEmail({
+                to: user.email,
+                subject: "Reset kata sandi akun Anda",
+                html: resetPasswordEmailHtml({
+                  name: user.name || "",
+                  url,
+                }),
+                text: `Reset kata sandi: ${url}`,
+              });
+              if (!result.ok) {
+                console.error("[auth] sendResetPassword email failed:", result.error);
+              } else {
+                console.info("[auth] sendResetPassword email sent to", user.email);
               }
-            })();
+            } catch (err) {
+              console.error("[auth] sendResetPassword failed", err);
+            }
           },
         },
       }
