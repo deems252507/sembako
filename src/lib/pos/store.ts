@@ -23,8 +23,8 @@ type PosState = StoreSnapshot & {
 const emptySnap = (): StoreSnapshot => ({
   profile: {
     userId: "",
-    storeName: "Warung Makmur",
-    slogan: "Kasir warung yang rapi",
+    storeName: "",
+    slogan: "Kelola bisnis Anda dengan lebih mudah",
     address: "",
     phone: "",
     whatsapp: "",

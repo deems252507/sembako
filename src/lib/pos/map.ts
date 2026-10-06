@@ -40,7 +40,7 @@ function parseJson<T>(raw: unknown, fallback: T): T {
 export function mapProfile(row: Record<string, unknown>, userId: string): StoreProfile {
   return {
     userId,
-    storeName: str(row.store_name) || "Warung Makmur",
+    storeName: str(row.store_name) || "",
     slogan: str(row.slogan),
     address: str(row.address),
     phone: str(row.phone),

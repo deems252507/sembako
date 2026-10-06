@@ -66,8 +66,8 @@ async function loadSnapshot(userId: string): Promise<StoreSnapshot> {
       ? mapProfile(profileRow, userId)
       : {
           userId,
-          storeName: "Warung Makmur",
-          slogan: "Kasir warung yang rapi",
+          storeName: "",
+          slogan: "Kelola bisnis Anda dengan lebih mudah",
           address: "",
           phone: "",
           whatsapp: "",
@@ -100,13 +100,13 @@ async function seedIfNeeded(userId: string): Promise<void> {
       user_id, store_name, slogan, address, phone, whatsapp, email, footer_receipt, cash_balance
     ) values (
       ${userId},
-      ${"Warung Makmur"},
-      ${"Kasir warung yang rapi"},
-      ${"Jl. Raya Pasar No. 10"},
-      ${"081234567890"},
-      ${"081234567890"},
       ${""},
-      ${"Terima kasih telah berbelanja di Warung Makmur!"},
+      ${"Kelola bisnis Anda dengan lebih mudah"},
+      ${""},
+      ${""},
+      ${""},
+      ${""},
+      ${"Terima kasih telah berbelanja!"},
       ${2480000}
     )
   `;
