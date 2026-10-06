@@ -22,6 +22,7 @@ import { useCurrentUser } from "@/lib/auth/use-current-user";
 import { checkoutSale, upsertProduct } from "@/lib/pos/actions";
 import { findByExactBarcode } from "@/lib/pos/identity";
 import { playScanBeep } from "@/lib/pos/scan-beep";
+import { esc, openPrintHtml, thermalShell } from "@/lib/pos/print";
 import { usePosStore } from "@/lib/pos/store";
 import type { PaymentMethod, Product, Sale } from "@/lib/pos/types";
 import { CATEGORIES } from "@/lib/pos/types";
@@ -51,6 +52,7 @@ function KasirPage() {
   const [scanLog, setScanLog] = useState<string[]>([]);
   const [camera, setCamera] = useState(false);
   const [mobileCart, setMobileCart] = useState(false);
+  const [unitChoice, setUnitChoice] = useState<Product | null>(null);
   const [payOpen, setPayOpen] = useState(false);
   const [method, setMethod] = useState<PaymentMethod>("tunai");
   const [paid, setPaid] = useState(0);
@@ -65,7 +67,7 @@ function KasirPage() {
     category: "Sembako",
   });
 
-  const modalOpen = camera || payOpen || Boolean(unknownCode) || Boolean(receipt);
+  const modalOpen = camera || payOpen || Boolean(unknownCode) || Boolean(receipt) || Boolean(unitChoice);
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase();
@@ -172,14 +174,19 @@ function KasirPage() {
           customerName: customer?.name || "Umum",
           paymentMethod: method,
           amountPaid: amount,
-          items: cart.map((i) => ({
-            productId: i.product.id,
-            name: i.product.name,
-            qty: i.qty,
-            price: i.product.sellPrice,
-            buyPrice: i.product.buyPrice,
-            discount: i.discount,
-          })),
+          items: cart.map((i) => {
+            const realId = i.product.id.replace(/::dus$/, "");
+            return {
+              productId: realId,
+              name: i.product.name,
+              qty: i.qty,
+              price: i.product.sellPrice,
+              buyPrice: i.product.buyPrice,
+              discount: i.discount,
+              unit: i.product.unit,
+              pcsPerDus: i.product.pcsPerDus || 1,
+            };
+          }),
         },
       });
       apply(result.snapshot);
@@ -198,55 +205,46 @@ function KasirPage() {
   const printReceipt = (trx?: Sale | null) => {
     const sale = trx ?? receipt;
     if (!sale) return;
-    const win = window.open("", "_blank", "width=320,height=600");
-    if (!win) return;
     const itemsHtml = sale.items
       .map(
         (item) =>
-          `<div class="row"><span>${item.name} x${item.qty}</span><span>${formatRupiah(item.price * item.qty)}</span></div>`,
+          `<div class="row"><span>${esc(item.name)} x${item.qty}</span><span>${esc(formatRupiah(item.price * item.qty))}</span></div>`,
       )
       .join("");
-    win.document.write(`
-      <html><head><title>Struk ${sale.invoice}</title>
-      <style>
-        body{font-family:monospace;font-size:12px;width:280px;margin:0 auto;padding:12px}
-        .center{text-align:center}.bold{font-weight:bold}
-        .row{display:flex;justify-content:space-between;margin:2px 0}
-        hr{border:none;border-top:1px dashed #333;margin:8px 0}
-      </style></head><body>
-      <div class="center bold" style="font-size:14px">${profile.storeName}</div>
-      <div class="center" style="font-size:11px;color:#555">${profile.address || ""}</div>
-      <div class="center" style="font-size:11px;color:#555">${profile.phone || ""}</div>
+    const payBlock =
+      !sale.isDebt && sale.paymentMethod === "tunai"
+        ? `<div class="row"><span>Bayar</span><span>${esc(formatRupiah(sale.amountPaid))}</span></div>
+           <div class="row"><span>Kembali</span><span>${esc(formatRupiah(sale.change))}</span></div>`
+        : "";
+    const debtTag = sale.isDebt
+      ? `<div class="center"><span class="tag">* BELUM LUNAS / BON *</span></div>`
+      : "";
+    const footer =
+      profile.footerReceipt && !profile.footerReceipt.includes("Makmur")
+        ? profile.footerReceipt
+        : "Terima kasih telah berbelanja di " + (profile.storeName || "toko kami") + "!";
+    const body = `
+      <div class="center store">${esc(profile.storeName || "Toko")}</div>
+      <div class="center muted">${esc(profile.address || "")}</div>
+      <div class="center muted">${esc(profile.phone || "")}</div>
       <hr>
-      <div>Invoice: ${sale.invoice}</div>
-      <div>Tanggal: ${sale.date.slice(0, 16).replace("T", " ")}</div>
-      <div>Kasir: ${sale.cashier}</div>
-      <div>Pelanggan: ${sale.customerName || "Umum"}</div>
-      <div>Metode: ${sale.isDebt ? "BON / HUTANG" : sale.paymentMethod}</div>
-      <div>Status: ${sale.isDebt ? "BELUM LUNAS" : "LUNAS"}</div>
+      <div class="row"><span>Invoice</span><span>${esc(sale.invoice)}</span></div>
+      <div class="row"><span>Tanggal</span><span>${esc(sale.date.slice(0, 16).replace("T", " "))}</span></div>
+      <div class="row"><span>Kasir</span><span>${esc(sale.cashier)}</span></div>
+      <div class="row"><span>Pelanggan</span><span>${esc(sale.customerName || "Umum")}</span></div>
+      <div class="row"><span>Metode</span><span>${esc(sale.isDebt ? "BON / HUTANG" : sale.paymentMethod)}</span></div>
+      <div class="row"><span>Status</span><span>${esc(sale.isDebt ? "BELUM LUNAS" : "LUNAS")}</span></div>
       <hr>
       ${itemsHtml}
       <hr>
-      <div class="row bold"><span>Total</span><span>${formatRupiah(sale.total)}</span></div>
-      ${
-        !sale.isDebt && sale.paymentMethod === "tunai"
-          ? `
-        <div class="row"><span>Bayar</span><span>${formatRupiah(sale.amountPaid)}</span></div>
-        <div class="row"><span>Kembali</span><span>${formatRupiah(sale.change)}</span></div>
-      `
-          : ""
-      }
-      ${sale.isDebt ? `<div class="center bold" style="color:#b45309;margin-top:6px">* BELUM LUNAS *</div>` : ""}
+      <div class="row total"><span>TOTAL</span><span>${esc(formatRupiah(sale.total))}</span></div>
+      ${payBlock}
+      ${debtTag}
       <hr>
-      <div class="center" style="font-size:11px;color:#888;margin-top:8px">${
-        profile.footerReceipt && !profile.footerReceipt.includes("Makmur")
-          ? profile.footerReceipt
-          : "Terima kasih telah berbelanja di " + profile.storeName + "!"
-      }</div>
-      <script>window.onload=function(){window.print()}</script>
-      </body></html>
-    `);
-    win.document.close();
+      <div class="center muted" style="margin-top:8px">${esc(footer)}</div>
+    `;
+    const ok = openPrintHtml(thermalShell(`Struk ${sale.invoice}`, body), { width: 320, height: 640 });
+    if (!ok) toast.error("Popup diblokir — izinkan popup untuk mencetak struk");
   };
 
   return (
@@ -334,12 +332,16 @@ function KasirPage() {
                   key={p.id}
                   type="button"
                   onClick={() => {
-                    const inCart = cart.find((item) => item.product.id === p.id)?.qty ?? 0;
                     if (p.stock <= 0) {
                       playScanBeep("miss");
                       toast.error(`${p.name} stok habis`);
                       return;
                     }
+                    if ((p.sellPriceDus || 0) > 0 && (p.pcsPerDus || 1) > 1) {
+                      setUnitChoice(p);
+                      return;
+                    }
+                    const inCart = cart.find((item) => item.product.id === p.id)?.qty ?? 0;
                     if (inCart >= p.stock) {
                       playScanBeep("miss");
                       toast.error(`${p.name} stok tidak cukup`);
@@ -363,7 +365,10 @@ function KasirPage() {
                   <p className="mt-1 text-sm font-semibold text-accent tabular">
                     {formatRupiah(p.sellPrice)}
                   </p>
-                  <p className="text-[11px] text-subtle">Stok {p.stock}</p>
+                  <p className="text-[11px] text-subtle">
+                    Stok {p.stock} pcs
+                    {p.sellPriceDus > 0 ? ` · ${formatRupiah(p.sellPriceDus)}/dus` : ""}
+                  </p>
                 </button>
               ))}
             </div>
@@ -621,6 +626,69 @@ function KasirPage() {
           onClose={() => setCamera(false)}
         />
       ) : null}
+
+      <Modal open={Boolean(unitChoice)} onClose={() => setUnitChoice(null)} title={unitChoice ? unitChoice.name : "Pilih satuan"}>
+        {unitChoice ? (
+          <div className="space-y-3">
+            <p className="text-sm text-muted">Stok tersedia: {unitChoice.stock} pcs
+              {unitChoice.pcsPerDus > 1 ? ` (~${Math.floor(unitChoice.stock / unitChoice.pcsPerDus)} dus)` : ""}
+            </p>
+            <button
+              type="button"
+              className="btn-primary w-full"
+              onClick={() => {
+                const inCart = cart.find((item) => item.product.id === unitChoice.id)?.qty ?? 0;
+                if (inCart >= unitChoice.stock) {
+                  playScanBeep("miss");
+                  toast.error(`${unitChoice.name} stok tidak cukup`);
+                  return;
+                }
+                addToCart(unitChoice);
+                playScanBeep("ok");
+                setMobileCart(true);
+                setUnitChoice(null);
+                toast.success(`${unitChoice.name} (pcs) masuk keranjang`);
+              }}
+            >
+              Pcs — {formatRupiah(unitChoice.sellPrice)}
+            </button>
+            <button
+              type="button"
+              className="btn-ghost w-full"
+              onClick={() => {
+                const pcsPer = Math.max(1, unitChoice.pcsPerDus || 1);
+                const inCartPcs = cart
+                  .filter((c) => c.product.id === unitChoice.id || c.product.id === unitChoice.id + "::dus")
+                  .reduce((s, c) => {
+                    const isDus = c.product.id.endsWith("::dus") || c.product.unit === "dus";
+                    return s + c.qty * (isDus ? pcsPer : 1);
+                  }, 0);
+                if (inCartPcs + pcsPer > unitChoice.stock) {
+                  playScanBeep("miss");
+                  toast.error(`${unitChoice.name} stok tidak cukup untuk 1 dus`);
+                  return;
+                }
+                const dusProduct: Product = {
+                  ...unitChoice,
+                  id: unitChoice.id + "::dus",
+                  name: `${unitChoice.name} (dus)`,
+                  sellPrice: unitChoice.sellPriceDus,
+                  buyPrice: unitChoice.buyPriceDus || unitChoice.buyPrice * pcsPer,
+                  unit: "dus",
+                };
+                addToCart(dusProduct);
+                playScanBeep("ok");
+                setMobileCart(true);
+                setUnitChoice(null);
+                toast.success(`${unitChoice.name} (dus) masuk keranjang`);
+              }}
+            >
+              Dus ({unitChoice.pcsPerDus || 12} pcs) — {formatRupiah(unitChoice.sellPriceDus)}
+            </button>
+          </div>
+        ) : null}
+      </Modal>
+
     </>
   );
 }

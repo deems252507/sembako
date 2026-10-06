@@ -22,7 +22,11 @@ const empty: {
   unit: string;
   buyPrice: number;
   sellPrice: number;
+  sellPriceDus: number;
+  buyPriceDus: number;
+  pcsPerDus: number;
   stock: number;
+  stockDus: number;
   minStock: number;
   image: string;
   status: "aktif" | "nonaktif";
@@ -34,7 +38,11 @@ const empty: {
   unit: "pcs",
   buyPrice: 0,
   sellPrice: 0,
+  sellPriceDus: 0,
+  buyPriceDus: 0,
+  pcsPerDus: 12,
   stock: 0,
+  stockDus: 0,
   minStock: 5,
   image: "",
   status: "aktif",
@@ -70,10 +78,14 @@ function ProdukPage() {
       sku: p.sku,
       barcode: p.barcode,
       category: p.category,
-      unit: p.unit,
+      unit: p.unit || "pcs",
       buyPrice: p.buyPrice,
       sellPrice: p.sellPrice,
+      sellPriceDus: p.sellPriceDus || 0,
+      buyPriceDus: p.buyPriceDus || 0,
+      pcsPerDus: p.pcsPerDus || 12,
       stock: p.stock,
+      stockDus: p.stockDus || 0,
       minStock: p.minStock,
       image: p.image,
       status: p.status,
@@ -221,11 +233,14 @@ function ProdukPage() {
                 <div className="min-w-0 flex-1">
                   <p className="font-medium">{p.name}</p>
                   <p className="font-mono text-xs text-subtle">{p.barcode || p.sku}</p>
-                  <p className="mt-1 text-sm font-semibold text-accent tabular">{formatRupiah(p.sellPrice)}</p>
+                  <p className="mt-1 text-sm font-semibold text-accent tabular">{formatRupiah(p.sellPrice)}<span className="text-xs font-normal text-muted"> /pcs</span></p>
+                  {p.sellPriceDus > 0 ? (
+                    <p className="text-xs text-muted tabular">{formatRupiah(p.sellPriceDus)} /dus</p>
+                  ) : null}
                 </div>
               </div>
               <div className="mt-3 flex items-center justify-between text-xs text-muted">
-                <span>Stok {p.stock} {p.unit}</span>
+                <span>Stok {p.stock} pcs{p.stockDus > 0 || p.sellPriceDus > 0 ? ` · ${p.stockDus || Math.floor(p.stock / Math.max(1, p.pcsPerDus || 1))} dus` : ` · ${p.unit}`}</span>
                 <span className={p.stock <= p.minStock ? "badge badge-warning" : "badge badge-success"}>
                   {p.stock <= p.minStock ? "Menipis" : "Aman"}
                 </span>
@@ -292,11 +307,25 @@ function ProdukPage() {
           <select className="field" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
             {CATEGORIES.filter((c) => c !== "Semua").map((c) => <option key={c}>{c}</option>)}
           </select>
-          <input className="field" placeholder="Satuan" value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} />
-          <MoneyInput placeholder="Harga beli" value={form.buyPrice} onChange={(buyPrice) => setForm({ ...form, buyPrice })} />
-          <MoneyInput placeholder="Harga jual" value={form.sellPrice} onChange={(sellPrice) => setForm({ ...form, sellPrice })} />
-          <input className="field" type="number" placeholder="Stok" value={form.stock || ""} onChange={(e) => setForm({ ...form, stock: Number(e.target.value) })} />
-            <input className="field" type="number" placeholder="Stok minimum" value={form.minStock || ""} onChange={(e) => setForm({ ...form, minStock: Number(e.target.value) })} />
+          <select
+            className="field"
+            value={form.unit}
+            onChange={(e) => setForm({ ...form, unit: e.target.value })}
+          >
+            <option value="pcs">pcs</option>
+            <option value="dus">dus</option>
+            <option value="pack">pack</option>
+            <option value="kg">kg</option>
+            <option value="liter">liter</option>
+          </select>
+          <MoneyInput placeholder="Harga beli / pcs" value={form.buyPrice} onChange={(buyPrice) => setForm({ ...form, buyPrice })} />
+          <MoneyInput placeholder="Harga jual / pcs" value={form.sellPrice} onChange={(sellPrice) => setForm({ ...form, sellPrice })} />
+          <input className="field" type="number" min={0} placeholder="Stok (pcs)" value={form.stock || ""} onChange={(e) => setForm({ ...form, stock: Number(e.target.value) })} />
+          <input className="field" type="number" min={0} placeholder="Stok minimum (pcs)" value={form.minStock || ""} onChange={(e) => setForm({ ...form, minStock: Number(e.target.value) })} />
+          <input className="field" type="number" min={1} placeholder="Isi 1 dus (pcs)" value={form.pcsPerDus || ""} onChange={(e) => setForm({ ...form, pcsPerDus: Math.max(1, Number(e.target.value) || 1) })} />
+          <input className="field" type="number" min={0} placeholder="Stok dus" value={form.stockDus || ""} onChange={(e) => setForm({ ...form, stockDus: Number(e.target.value) })} />
+          <MoneyInput placeholder="Harga beli / dus" value={form.buyPriceDus} onChange={(buyPriceDus) => setForm({ ...form, buyPriceDus })} />
+          <MoneyInput placeholder="Harga jual / dus" value={form.sellPriceDus} onChange={(sellPriceDus) => setForm({ ...form, sellPriceDus })} />
           </div>
         </div>
         <button type="button" className="btn-primary mt-4 w-full" onClick={() => void save()}>

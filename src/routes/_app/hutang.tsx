@@ -8,6 +8,7 @@ import { MoneyInput } from "@/components/money-input";
 import { payCustomerDebt, paySupplierDebt } from "@/lib/pos/actions";
 import { usePosStore } from "@/lib/pos/store";
 import type { Customer, Purchase, Sale } from "@/lib/pos/types";
+import { a4Shell, esc, openPrintHtml, thermalShell } from "@/lib/pos/print";
 import { formatDate, formatRupiah } from "@/lib/utils";
 
 export const Route = createFileRoute("/_app/hutang")({ component: HutangPage });
@@ -83,53 +84,34 @@ function HutangPage() {
     );
 
   const printBon = (sale: Sale) => {
-    const win = window.open("", "_blank", "width=320,height=600");
-    if (!win) {
-      toast.error("Popup diblokir — izinkan popup untuk cetak");
-      return;
-    }
     const itemsHtml = sale.items
       .map(
         (item) =>
-          `<div class="row"><span>${item.name} x${item.qty}</span><span>${formatRupiah(item.price * item.qty)}</span></div>`,
+          `<div class="row"><span>${esc(item.name)} x${item.qty}</span><span>${esc(formatRupiah(item.price * item.qty))}</span></div>`,
       )
       .join("");
-    win.document.write(`
-      <html><head><title>Bon ${sale.invoice}</title>
-      <style>
-        body{font-family:monospace;font-size:12px;width:280px;margin:0 auto;padding:12px}
-        .center{text-align:center}.bold{font-weight:bold}
-        .row{display:flex;justify-content:space-between;margin:2px 0}
-        hr{border:none;border-top:1px dashed #333;margin:8px 0}
-      </style></head><body>
-      <div class="center bold" style="font-size:14px">${profile.storeName}</div>
-      <div class="center" style="font-size:11px;color:#555">${profile.address || ""}</div>
-      <div class="center bold" style="margin-top:8px;color:#b45309">* BON / PIUTANG *</div>
+    const body = `
+      <div class="center store">${esc(profile.storeName || "Toko")}</div>
+      <div class="center muted">${esc(profile.address || "")}</div>
+      <div class="center"><span class="tag">* BON / PIUTANG *</span></div>
       <hr>
-      <div>Invoice: ${sale.invoice}</div>
-      <div>Tanggal: ${sale.date.slice(0, 16).replace("T", " ")}</div>
-      <div>Kasir: ${sale.cashier}</div>
-      <div>Pelanggan: ${sale.customerName || "Umum"}</div>
-      <div>Status: BELUM LUNAS</div>
+      <div class="row"><span>Invoice</span><span>${esc(sale.invoice)}</span></div>
+      <div class="row"><span>Tanggal</span><span>${esc(sale.date.slice(0, 16).replace("T", " "))}</span></div>
+      <div class="row"><span>Kasir</span><span>${esc(sale.cashier)}</span></div>
+      <div class="row"><span>Pelanggan</span><span>${esc(sale.customerName || "Umum")}</span></div>
+      <div class="row"><span>Status</span><span>BELUM LUNAS</span></div>
       <hr>
       ${itemsHtml}
       <hr>
-      <div class="row bold"><span>Total Bon</span><span>${formatRupiah(sale.total)}</span></div>
+      <div class="row total"><span>Total Bon</span><span>${esc(formatRupiah(sale.total))}</span></div>
       <hr>
-      <div class="center" style="font-size:11px;color:#888;margin-top:8px">Harap dilunasi sesuai kesepakatan</div>
-      <script>window.onload=function(){window.print()}</script>
-      </body></html>
-    `);
-    win.document.close();
+      <div class="center muted" style="margin-top:8px">Harap dilunasi sesuai kesepakatan</div>
+    `;
+    const ok = openPrintHtml(thermalShell(`Bon ${sale.invoice}`, body), { width: 320, height: 640 });
+    if (!ok) toast.error("Popup diblokir — izinkan popup untuk cetak");
   };
 
   const handlePrintPiutang = () => {
-    const win = window.open("", "_blank");
-    if (!win) {
-      toast.error("Popup diblokir — izinkan popup untuk cetak PDF");
-      return;
-    }
-
     const list =
       statusFilter === "lunas"
         ? customers.filter((c) => c.debtRemaining <= 0)
@@ -154,46 +136,46 @@ function HutangPage() {
       let invBlocks = "";
 
       if (bons.length === 0) {
-        invBlocks = `<p class="note">Belum ada rincian transaksi bon di sistem. Sisa: ${formatRupiah(cust.debtRemaining)}</p>`;
+        invBlocks = `<p style="color:#94a3b8;font-size:10px;font-style:italic">Belum ada rincian transaksi bon. Sisa: ${esc(formatRupiah(cust.debtRemaining))}</p>`;
       } else {
         bons.forEach((t) => {
           const itemsRows = t.items
             .map(
               (item, i) =>
                 `<tr>
-                  <td class="c">${i + 1}</td>
-                  <td>${item.name}</td>
-                  <td class="c">${item.qty}</td>
-                  <td class="r">${formatRupiah(item.price)}</td>
-                  <td class="r">${formatRupiah(item.price * item.qty)}</td>
+                  <td style="text-align:center">${i + 1}</td>
+                  <td>${esc(item.name)}</td>
+                  <td style="text-align:center">${item.qty}</td>
+                  <td style="text-align:right">${esc(formatRupiah(item.price))}</td>
+                  <td style="text-align:right">${esc(formatRupiah(item.price * item.qty))}</td>
                 </tr>`,
             )
             .join("");
           invBlocks += `
-          <div class="box">
-            <div class="meta">
-              <span><b>No. ${t.invoice}</b></span>
-              <span>${t.date.slice(0, 10)}</span>
-              <span>Kasir: ${t.cashier}</span>
+          <div style="border:1px solid #e5e7eb;border-radius:4px;margin-bottom:8px;overflow:hidden">
+            <div style="display:flex;gap:16px;flex-wrap:wrap;background:#f8fafc;padding:6px 10px;font-size:10px;color:#475569;border-bottom:1px solid #e5e7eb">
+              <span><b>No. ${esc(t.invoice)}</b></span>
+              <span>${esc(t.date.slice(0, 10))}</span>
+              <span>Kasir: ${esc(t.cashier)}</span>
               <span style="color:${cust.debtRemaining > 0 ? "#b91c1c" : "#15803d"};font-weight:700">${
                 cust.debtRemaining > 0 ? "BELUM LUNAS" : "LUNAS"
               }</span>
             </div>
-            <table>
+            <table style="width:100%;border-collapse:collapse">
               <thead>
                 <tr>
-                  <th style="width:36px">No</th>
-                  <th>Nama Barang</th>
-                  <th style="width:50px" class="c">Qty</th>
-                  <th style="width:100px" class="r">Harga</th>
-                  <th style="width:110px" class="r">Subtotal</th>
+                  <th style="background:#f1f5f9;padding:6px 8px;font-size:10px;text-align:left">No</th>
+                  <th style="background:#f1f5f9;padding:6px 8px;font-size:10px;text-align:left">Nama Barang</th>
+                  <th style="background:#f1f5f9;padding:6px 8px;font-size:10px;text-align:center">Qty</th>
+                  <th style="background:#f1f5f9;padding:6px 8px;font-size:10px;text-align:right">Harga</th>
+                  <th style="background:#f1f5f9;padding:6px 8px;font-size:10px;text-align:right">Subtotal</th>
                 </tr>
               </thead>
               <tbody>${itemsRows}</tbody>
               <tfoot>
                 <tr>
-                  <td colspan="4" class="r"><b>Total Bon</b></td>
-                  <td class="r"><b>${formatRupiah(t.total)}</b></td>
+                  <td colspan="4" style="text-align:right;padding:6px 8px;background:#f8fafc;border-top:1px solid #e2e8f0"><b>Total Bon</b></td>
+                  <td style="text-align:right;padding:6px 8px;background:#f8fafc;border-top:1px solid #e2e8f0"><b>${esc(formatRupiah(t.total))}</b></td>
                 </tr>
               </tfoot>
             </table>
@@ -202,14 +184,14 @@ function HutangPage() {
       }
 
       bodyHtml += `
-      <section class="cust">
-        <div class="cust-head">
+      <section style="margin-bottom:18px;page-break-inside:avoid">
+        <div style="display:flex;justify-content:space-between;align-items:center;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:4px;padding:8px 10px;margin-bottom:8px">
           <div>
-            <span class="badge">${no}</span>
-            <strong>${cust.name}</strong>
-            <span class="phone">${cust.phone || "-"}</span>
+            <span style="display:inline-block;background:#14532d;color:#fff;font-size:10px;font-weight:700;width:20px;height:20px;line-height:20px;text-align:center;border-radius:50%;margin-right:8px">${no}</span>
+            <strong>${esc(cust.name)}</strong>
+            <span style="color:#666;margin-left:8px">${esc(cust.phone || "-")}</span>
           </div>
-          <div class="cust-sum">Sisa: <b>${formatRupiah(cust.debtRemaining)}</b> · ${
+          <div style="font-size:11px;color:#166534">Sisa: <b>${esc(formatRupiah(cust.debtRemaining))}</b> · ${
             cust.debtRemaining > 0 ? "Belum Lunas" : "Lunas"
           }</div>
         </div>
@@ -217,7 +199,7 @@ function HutangPage() {
       </section>`;
     });
 
-    if (!bodyHtml) bodyHtml = '<p class="empty">Tidak ada data sesuai filter.</p>';
+    if (!bodyHtml) bodyHtml = '<p style="text-align:center;color:#94a3b8;padding:32px">Tidak ada data sesuai filter.</p>';
 
     const grandTotal = filteredBySearch.reduce((s, c) => s + c.debtRemaining, 0);
     const tgl = new Date().toLocaleDateString("id-ID", {
@@ -227,59 +209,31 @@ function HutangPage() {
       day: "numeric",
     });
 
-    win.document.write(`<!DOCTYPE html><html><head>
-<meta charset="utf-8"/>
-<title>Laporan Piutang - ${profile.storeName}</title>
-<style>
-  @page { size: A4; margin: 16mm; }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: "Segoe UI", Tahoma, Arial, sans-serif; font-size: 11px; color: #1a1a1a; line-height: 1.45; }
-  .header { border-bottom: 2px solid #14532d; padding-bottom: 12px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: flex-start; }
-  .header h1 { font-size: 16px; color: #14532d; font-weight: 700; }
-  .header .addr { font-size: 10px; color: #555; margin-top: 3px; }
-  .header .title-right { text-align: right; }
-  .header .title-right .doc { font-size: 13px; font-weight: 700; color: #14532d; }
-  .header .title-right .tgl { font-size: 10px; color: #666; margin-top: 2px; }
-  .cust { margin-bottom: 18px; page-break-inside: avoid; }
-  .cust-head { display: flex; justify-content: space-between; align-items: center; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 4px; padding: 8px 10px; margin-bottom: 8px; }
-  .badge { display: inline-block; background: #14532d; color: #fff; font-size: 10px; font-weight: 700; width: 20px; height: 20px; line-height: 20px; text-align: center; border-radius: 50%; margin-right: 8px; }
-  .phone { color: #666; margin-left: 8px; font-weight: 400; }
-  .cust-sum { font-size: 11px; color: #166534; }
-  .box { border: 1px solid #e5e7eb; border-radius: 4px; margin-bottom: 8px; overflow: hidden; }
-  .meta { display: flex; gap: 16px; flex-wrap: wrap; background: #f8fafc; padding: 6px 10px; font-size: 10px; color: #475569; border-bottom: 1px solid #e5e7eb; }
-  table { width: 100%; border-collapse: collapse; }
-  th { background: #f1f5f9; font-weight: 600; font-size: 10px; text-transform: uppercase; letter-spacing: 0.3px; color: #475569; padding: 6px 8px; border-bottom: 1px solid #e2e8f0; text-align: left; }
-  td { padding: 5px 8px; border-bottom: 1px solid #f1f5f9; font-size: 11px; }
-  tbody tr:last-child td { border-bottom: none; }
-  tfoot td { background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 6px 8px; font-size: 11px; }
-  .c { text-align: center; } .r { text-align: right; }
-  .note { color: #94a3b8; font-size: 10px; padding: 6px 0; font-style: italic; }
-  .empty { text-align: center; color: #94a3b8; padding: 32px; }
-  .footer-total { margin-top: 20px; border: 2px solid #14532d; border-radius: 4px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; background: #f0fdf4; }
-  .footer-total .label { font-size: 12px; font-weight: 600; color: #14532d; }
-  .footer-total .amount { font-size: 16px; font-weight: 700; color: #14532d; }
-</style></head><body>
-  <div class="header">
+    const body = `
+  <div style="border-bottom:2px solid #14532d;padding-bottom:12px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:flex-start">
     <div>
-      <h1>${profile.storeName}</h1>
-      <div class="addr">${profile.address || ""} · ${profile.phone || ""}</div>
+      <h1 style="font-size:16px;color:#14532d;font-weight:700">${esc(profile.storeName)}</h1>
+      <div style="font-size:10px;color:#555;margin-top:3px">${esc(profile.address || "")} · ${esc(profile.phone || "")}</div>
     </div>
-    <div class="title-right">
-      <div class="doc">Laporan Piutang Pelanggan</div>
-      <div class="tgl">${tgl}</div>
-      <div class="tgl">Filter: ${
+    <div style="text-align:right">
+      <div style="font-size:13px;font-weight:700;color:#14532d">Laporan Piutang Pelanggan</div>
+      <div style="font-size:10px;color:#666;margin-top:2px">${esc(tgl)}</div>
+      <div style="font-size:10px;color:#666">Filter: ${
         statusFilter === "belum" ? "Belum Lunas" : statusFilter === "lunas" ? "Lunas" : "Semua"
-      }${search ? " · Cari: " + search : ""}</div>
+      }${search ? " · Cari: " + esc(search) : ""}</div>
     </div>
   </div>
   ${bodyHtml}
-  <div class="footer-total">
-    <span class="label">Total Sisa Piutang</span>
-    <span class="amount">${formatRupiah(grandTotal)}</span>
+  <div style="margin-top:20px;border:2px solid #14532d;border-radius:4px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;background:#f0fdf4">
+    <span style="font-size:12px;font-weight:600;color:#14532d">Total Sisa Piutang</span>
+    <span style="font-size:16px;font-weight:700;color:#14532d">${esc(formatRupiah(grandTotal))}</span>
   </div>
-  <script>window.onload=function(){window.print()}</script>
-</body></html>`);
-    win.document.close();
+`;
+    const ok = openPrintHtml(a4Shell(`Laporan Piutang - ${profile.storeName}`, body), {
+      width: 900,
+      height: 700,
+    });
+    if (!ok) toast.error("Popup diblokir — izinkan popup untuk cetak PDF");
   };
 
   return (

@@ -26,14 +26,26 @@ function DashboardPage() {
   const profile = usePosStore((s) => s.profile);
 
   const today = new Date().toISOString().slice(0, 10);
-  const todaySales = sales.filter((s) => s.date.slice(0, 10) === today);
+  const activeSales = sales.filter((s) => s.status !== "batal");
+  const todaySales = activeSales.filter((s) => s.date.slice(0, 10) === today);
   const omzet = todaySales.reduce((s, t) => s + t.total, 0);
+  const omzetAll = activeSales.reduce((s, t) => s + t.total, 0);
   const laba = todaySales.reduce((s, t) => {
     const hpp = t.items.reduce((h, i) => h + i.buyPrice * i.qty, 0);
     return s + (t.total - hpp);
   }, 0);
+  let cashToday = 0;
+  let qrisToday = 0;
+  let tfToday = 0;
+  for (const t of todaySales) {
+    if (t.isDebt) continue;
+    if (t.paymentMethod === "tunai") cashToday += t.total;
+    else if (t.paymentMethod === "qris") qrisToday += t.total;
+    else if (t.paymentMethod === "transfer") tfToday += t.total;
+  }
   const piutang = customers.reduce((s, c) => s + c.debtRemaining, 0);
   const hutang = suppliers.reduce((s, s2) => s + s2.debt, 0);
+  const trxCount = todaySales.length;
 
   const chart = Array.from({ length: 7 }).map((_, i) => {
     const d = new Date();
@@ -41,13 +53,13 @@ function DashboardPage() {
     const key = d.toISOString().slice(0, 10);
     return {
       date: d.toLocaleDateString("id-ID", { day: "numeric", month: "short" }),
-      penjualan: sales.filter((s) => s.date.slice(0, 10) === key).reduce((n, t) => n + t.total, 0),
+      penjualan: activeSales.filter((s) => s.date.slice(0, 10) === key).reduce((n, t) => n + t.total, 0),
       pembelian: purchases.filter((p) => p.date === key).reduce((n, t) => n + t.total, 0),
     };
   });
 
   const sold: Record<string, { name: string; qty: number; unit: string }> = {};
-  for (const sale of sales) {
+  for (const sale of activeSales) {
     for (const item of sale.items) {
       const cur = sold[item.productId] || {
         name: item.name,
@@ -119,6 +131,24 @@ function DashboardPage() {
                 ))}
               </div>
             )}
+          </div>
+        </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
+          <div className="card p-4">
+            <p className="text-xs text-muted">Omzet semua</p>
+            <p className="mt-1 text-lg font-semibold tabular">{formatRupiah(omzetAll)}</p>
+          </div>
+          <div className="card p-4">
+            <p className="text-xs text-muted">Tunai hari ini</p>
+            <p className="mt-1 text-lg font-semibold tabular">{formatRupiah(cashToday)}</p>
+          </div>
+          <div className="card p-4">
+            <p className="text-xs text-muted">QRIS hari ini</p>
+            <p className="mt-1 text-lg font-semibold tabular">{formatRupiah(qrisToday)}</p>
+          </div>
+          <div className="card p-4">
+            <p className="text-xs text-muted">Transfer hari ini</p>
+            <p className="mt-1 text-lg font-semibold tabular">{formatRupiah(tfToday)}</p>
           </div>
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

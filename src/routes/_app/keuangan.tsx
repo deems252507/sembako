@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { MoneyInput } from "@/components/money-input";
 import { addCashEntry, deleteCashEntry } from "@/lib/pos/actions";
 import { usePosStore } from "@/lib/pos/store";
+import { a4Shell, esc, openPrintHtml } from "@/lib/pos/print";
 import { formatDate, formatRupiah } from "@/lib/utils";
 
 export const Route = createFileRoute("/_app/keuangan")({ component: KeuanganPage });
@@ -39,52 +40,42 @@ function KeuanganPage() {
   }, [sales]);
 
   const handlePrint = () => {
-    const win = window.open("", "_blank");
-    if (!win) return;
     const rows = entries
       .map(
         (t) =>
           `<tr>
-            <td>${t.date.slice(0, 10)}</td>
-            <td>${t.note}</td>
+            <td>${esc(t.date.slice(0, 10))}</td>
+            <td>${esc(t.note)}</td>
             <td>${t.kind === "masuk" ? "Masuk" : "Keluar"}</td>
             <td style="text-align:right;color:${t.kind === "masuk" ? "green" : "red"}">${
               t.kind === "masuk" ? "+" : "-"
-            }${formatRupiah(t.amount)}</td>
+            }${esc(formatRupiah(t.amount))}</td>
           </tr>`,
       )
       .join("");
-    win.document.write(`
-      <html><head><title>Laporan Keuangan - ${profile.storeName}</title>
-      <style>
-        body{font-family:Arial,sans-serif;padding:24px;font-size:13px}
-        h1{margin:0;font-size:18px} .sub{color:#555;margin:4px 0 16px;font-size:13px}
-        table{width:100%;border-collapse:collapse;margin-top:12px}
-        th,td{border:1px solid #ddd;padding:8px;text-align:left} th{background:#f5f5f5}
-        .cards{display:flex;gap:16px;margin:16px 0;flex-wrap:wrap}
-        .card{border:1px solid #ddd;border-radius:8px;padding:12px;flex:1;min-width:140px}
-        .card b{display:block;font-size:16px;margin-top:4px}
-      </style></head><body>
-      <h1>${profile.storeName}</h1>
-      <p class="sub">Laporan Keuangan — ${new Date().toLocaleDateString("id-ID")}<br/>${profile.address || ""} | ${profile.phone || ""}</p>
+    const body = `
+      <h1>${esc(profile.storeName)}</h1>
+      <p class="sub">Laporan Keuangan — ${esc(new Date().toLocaleDateString("id-ID"))}<br/>${esc(profile.address || "")} | ${esc(profile.phone || "")}</p>
       <div class="cards">
-        <div class="card">Saldo Kas<b style="color:green">${formatRupiah(profile.cashBalance)}</b></div>
-        <div class="card">Kas Masuk<b style="color:#2563eb">${formatRupiah(masuk)}</b></div>
-        <div class="card">Kas Keluar<b style="color:red">${formatRupiah(keluar)}</b></div>
+        <div class="card">Saldo Kas<b style="color:green">${esc(formatRupiah(profile.cashBalance))}</b></div>
+        <div class="card">Kas Masuk<b style="color:#2563eb">${esc(formatRupiah(masuk))}</b></div>
+        <div class="card">Kas Keluar<b style="color:red">${esc(formatRupiah(keluar))}</b></div>
       </div>
       <div class="cards">
-        <div class="card">Penjualan Tunai (Cash)<b>${formatRupiah(cashSales)}</b></div>
-        <div class="card">QRIS<b>${formatRupiah(qrisSales)}</b></div>
-        <div class="card">Transfer (TF)<b>${formatRupiah(tfSales)}</b></div>
+        <div class="card">Penjualan Tunai (Cash)<b>${esc(formatRupiah(cashSales))}</b></div>
+        <div class="card">QRIS<b>${esc(formatRupiah(qrisSales))}</b></div>
+        <div class="card">Transfer (TF)<b>${esc(formatRupiah(tfSales))}</b></div>
       </div>
       <table>
         <thead><tr><th>Tanggal</th><th>Keterangan</th><th>Jenis</th><th>Jumlah</th></tr></thead>
         <tbody>${rows || '<tr><td colspan="4" style="text-align:center">Belum ada mutasi kas</td></tr>'}</tbody>
       </table>
-      <script>window.onload=function(){window.print()}</script>
-      </body></html>
-    `);
-    win.document.close();
+    `;
+    const ok = openPrintHtml(a4Shell(`Laporan Keuangan - ${profile.storeName}`, body), {
+      width: 900,
+      height: 700,
+    });
+    if (!ok) toast.error("Popup diblokir — izinkan popup untuk mencetak PDF");
   };
 
   return (

@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { deleteSale } from "@/lib/pos/actions";
 import { usePosStore } from "@/lib/pos/store";
 import type { Sale } from "@/lib/pos/types";
+import { esc, openPrintHtml, thermalShell } from "@/lib/pos/print";
 import { formatDateTime, formatRupiah } from "@/lib/utils";
 
 export const Route = createFileRoute("/_app/laporan")({ component: LaporanPage });
@@ -35,55 +36,46 @@ function LaporanPage() {
   const omzet = filtered.reduce((s, t) => s + t.total, 0);
 
   const handlePrintStruk = (trx: Sale) => {
-    const win = window.open("", "_blank", "width=320,height=600");
-    if (!win) return;
     const itemsHtml = trx.items
       .map(
         (item) =>
-          `<div class="row"><span>${item.name} x${item.qty}</span><span>${formatRupiah(item.price * item.qty)}</span></div>`,
+          `<div class="row"><span>${esc(item.name)} x${item.qty}</span><span>${esc(formatRupiah(item.price * item.qty))}</span></div>`,
       )
       .join("");
-    win.document.write(`
-      <html><head><title>Struk ${trx.invoice}</title>
-      <style>
-        body{font-family:monospace;font-size:12px;width:280px;margin:0 auto;padding:12px}
-        .center{text-align:center}.bold{font-weight:bold}
-        .row{display:flex;justify-content:space-between;margin:2px 0}
-        hr{border:none;border-top:1px dashed #333;margin:8px 0}
-      </style></head><body>
-      <div class="center bold" style="font-size:14px">${profile.storeName}</div>
-      <div class="center" style="font-size:11px;color:#555">${profile.address || ""}</div>
-      <div class="center" style="font-size:11px;color:#555">${profile.phone || ""}</div>
+    const payBlock =
+      !trx.isDebt && trx.paymentMethod === "tunai"
+        ? `<div class="row"><span>Bayar</span><span>${esc(formatRupiah(trx.amountPaid))}</span></div>
+           <div class="row"><span>Kembali</span><span>${esc(formatRupiah(trx.change))}</span></div>`
+        : "";
+    const debtTag = trx.isDebt
+      ? `<div class="center"><span class="tag">* BELUM LUNAS / BON *</span></div>`
+      : "";
+    const footer =
+      profile.footerReceipt && !profile.footerReceipt.includes("Makmur")
+        ? profile.footerReceipt
+        : "Terima kasih telah berbelanja di " + (profile.storeName || "toko kami") + "!";
+    const body = `
+      <div class="center store">${esc(profile.storeName || "Toko")}</div>
+      <div class="center muted">${esc(profile.address || "")}</div>
+      <div class="center muted">${esc(profile.phone || "")}</div>
       <hr>
-      <div>Invoice: ${trx.invoice}</div>
-      <div>Tanggal: ${trx.date.slice(0, 16).replace("T", " ")}</div>
-      <div>Kasir: ${trx.cashier}</div>
-      <div>Pelanggan: ${trx.customerName || "Umum"}</div>
-      <div>Metode: ${trx.isDebt ? "BON / HUTANG" : trx.paymentMethod}</div>
-      <div>Status: ${trx.isDebt ? "BELUM LUNAS" : "LUNAS"}</div>
+      <div class="row"><span>Invoice</span><span>${esc(trx.invoice)}</span></div>
+      <div class="row"><span>Tanggal</span><span>${esc(trx.date.slice(0, 16).replace("T", " "))}</span></div>
+      <div class="row"><span>Kasir</span><span>${esc(trx.cashier)}</span></div>
+      <div class="row"><span>Pelanggan</span><span>${esc(trx.customerName || "Umum")}</span></div>
+      <div class="row"><span>Metode</span><span>${esc(trx.isDebt ? "BON / HUTANG" : trx.paymentMethod)}</span></div>
+      <div class="row"><span>Status</span><span>${esc(trx.isDebt ? "BELUM LUNAS" : "LUNAS")}</span></div>
       <hr>
       ${itemsHtml}
       <hr>
-      <div class="row bold"><span>Total</span><span>${formatRupiah(trx.total)}</span></div>
-      ${
-        !trx.isDebt && trx.paymentMethod === "tunai"
-          ? `
-        <div class="row"><span>Bayar</span><span>${formatRupiah(trx.amountPaid)}</span></div>
-        <div class="row"><span>Kembali</span><span>${formatRupiah(trx.change)}</span></div>
-      `
-          : ""
-      }
-      ${trx.isDebt ? `<div class="center bold" style="color:#b45309;margin-top:6px">* BELUM LUNAS *</div>` : ""}
+      <div class="row total"><span>TOTAL</span><span>${esc(formatRupiah(trx.total))}</span></div>
+      ${payBlock}
+      ${debtTag}
       <hr>
-      <div class="center" style="font-size:11px;color:#888;margin-top:8px">${
-        profile.footerReceipt && !profile.footerReceipt.includes("Makmur")
-          ? profile.footerReceipt
-          : "Terima kasih telah berbelanja di " + profile.storeName + "!"
-      }</div>
-      <script>window.onload=function(){window.print()}</script>
-      </body></html>
-    `);
-    win.document.close();
+      <div class="center muted" style="margin-top:8px">${esc(footer)}</div>
+    `;
+    const ok = openPrintHtml(thermalShell(`Struk ${trx.invoice}`, body), { width: 320, height: 640 });
+    if (!ok) toast.error("Popup diblokir — izinkan popup untuk mencetak");
   };
 
   const handleDelete = async (t: Sale) => {
