@@ -1,18 +1,24 @@
-# Aplikasi Kasir / POS
+# Warung Sembako POS
 
-Sumber kode web app kasir (dashboard, produk, stok, hutang, keuangan, shift).
+Web kasir (TanStack Start + Vite). Bukan Next.js dan bukan Prisma.
 
-## Yang di-upload ke GitHub
-Folder ini sudah dibersihkan. Jangan upload:
-- `node_modules/`
-- `.vercel/` (hasil build)
-- `.grok/` (file internal workspace)
+## Deploy di Vercel
+1. Framework Preset: Other
+2. Build Command: `npm run build`
+3. Install Command: kosong (biarkan `npm install`)
+4. Output Directory: kosong
+5. Node.js: 22
+6. Environment Variable: `DATABASE_URL` = connection string Neon
+7. Redeploy
 
-## Cara jalan lokal
+Migrasi tabel jalan otomatis saat build kalau `DATABASE_URL` terisi. Jangan pakai `prisma db push` atau `next build`.
+
+## Login
+Tidak ada akun bawaan. Buka halaman login → Daftar → isi email dan kata sandi sendiri.
+
+## Lokal
 ```bash
 npm install
 npm run dev
 ```
 Buka http://localhost:8080
-
-Database lokal memakai PGlite. Untuk production (Vercel/Neon), set `DATABASE_URL` di environment, jangan taruh di kode.
