@@ -1,7 +1,7 @@
 import { createFileRoute, Navigate, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
-import { Eye, EyeOff, Store } from "lucide-react";
-import { GROK_PROVIDERS, authClient, authEnabled, signIn } from "@/lib/auth/client";
+import { Eye, EyeOff, LockKeyhole, Mail, Phone, UserRound } from "lucide-react";
+import { authClient } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { cn } from "@/lib/utils";
 
@@ -9,220 +9,317 @@ export const Route = createFileRoute("/login")({ component: LoginPage });
 
 function LoginPage() {
   const { user, isPending } = useCurrentUserState();
+
   if (isPending) {
     return (
-      <div className="grid min-h-dvh place-items-center bg-ink paper-grain">
-        <div className="h-12 w-48 animate-pulse rounded-xl bg-white/10" />
+      <div className="grid min-h-dvh place-items-center bg-[#f6f8f7]">
+        <div className="h-2 w-40 overflow-hidden rounded-full bg-slate-200">
+          <div className="h-full w-1/2 animate-pulse rounded-full bg-emerald-600" />
+        </div>
       </div>
     );
   }
+
   if (user) return <Navigate to="/dashboard" />;
-  return <LuxuryLogin />;
+  return <UniversalLogin />;
 }
 
-function LuxuryLogin() {
+function UniversalLogin() {
   const router = useRouter();
   const [mode, setMode] = useState<"masuk" | "daftar">("masuk");
   const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [show, setShow] = useState(false);
+  const [confirmation, setConfirmation] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const changeMode = (nextMode: "masuk" | "daftar") => {
+    setMode(nextMode);
+    setError("");
+    setPassword("");
+    setConfirmation("");
+  };
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setError("");
+
+    if (mode === "daftar" && password !== confirmation) {
+      setError("Konfirmasi kata sandi tidak cocok.");
+      return;
+    }
+
+    setLoading(true);
+
     try {
       if (mode === "daftar") {
+        // Keep the existing Better Auth flow intact. The current auth schema
+        // stores the user's name/email/password; phone is collected here for
+        // the onboarding UX and can be completed in the store profile later.
         const { error: err } = await authClient.signUp.email({
           email,
           password,
-          name: name || email.split("@")[0] || "Pemilik toko",
+          name: name.trim() || email.split("@")[0] || "Pengguna",
         });
-        if (err) throw new Error(err.message || "Gagal daftar");
+        if (err) throw new Error(err.message || "Gagal membuat akun.");
       } else {
-        const { error: err } = await authClient.signIn.email({ email, password });
-        if (err) throw new Error(err.message || "Email atau kata sandi salah");
+        const { error: err } = await authClient.signIn.email({
+          email,
+          password,
+        });
+        if (err) throw new Error(err.message || "Email atau kata sandi salah.");
       }
+
       await authClient.getSession();
       await router.invalidate();
       router.navigate({ to: "/dashboard" });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal masuk");
+      setError(err instanceof Error ? err.message : "Terjadi kesalahan. Silakan coba lagi.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <main className="min-h-dvh bg-bg lg:grid lg:grid-cols-[1.05fr_0.95fr]">
-      <section className="relative hidden overflow-hidden bg-ink paper-grain text-ink-fg lg:flex lg:flex-col lg:justify-between lg:p-12">
-        <div className="absolute inset-y-0 right-0 w-px bg-white/10" />
-        <div>
-          <div className="flex items-center gap-3">
-            <div className="grid h-11 w-11 place-items-center rounded-xl border border-white/15 bg-white/8">
-              <Store className="h-5 w-5" />
-            </div>
-            <p className="text-sm tracking-[0.22em] uppercase text-ink-muted">Sistem kasir</p>
-          </div>
-          <h1 className="mt-16 max-w-lg font-display text-6xl leading-[1.05] tracking-tight">
-            Warung
-            <br />
-            Makmur
-          </h1>
-          <p className="mt-6 max-w-sm text-base leading-relaxed text-ink-muted">
-            Kasir yang tenang, stok yang jujur, pembelian yang bisa dihapus tanpa jejak kacau.
-          </p>
-        </div>
-        <ShelfMark />
-        <ul className="grid max-w-md grid-cols-3 gap-6 text-sm text-ink-muted">
-          <li>
-            <p className="font-display text-2xl text-ink-fg">Scan</p>
-            Kamera & USB
-          </li>
-          <li>
-            <p className="font-display text-2xl text-ink-fg">Stok</p>
-            Masuk-keluar rapi
-          </li>
-          <li>
-            <p className="font-display text-2xl text-ink-fg">Bon</p>
-            Hutang tercatat
-          </li>
-        </ul>
-      </section>
+    <main className="min-h-dvh bg-[#f6f8f7] px-4 py-6 text-slate-900 sm:px-6 sm:py-10">
+      <div className="mx-auto flex min-h-[calc(100dvh-3rem)] w-full max-w-6xl items-center justify-center">
+        <div className="grid w-full overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.09)] lg:grid-cols-[0.92fr_1.08fr]">
+          <section className="relative hidden overflow-hidden bg-[#103b2b] px-10 py-12 text-white lg:flex lg:min-h-[680px] lg:flex-col lg:justify-between xl:px-14">
+            <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full border border-white/10" />
+            <div className="absolute -bottom-32 -left-24 h-80 w-80 rounded-full border border-white/10" />
 
-      <section className="flex items-center justify-center px-5 py-10 sm:px-10">
-        <div className="w-full max-w-md">
-          <div className="mb-8 lg:hidden">
-            <p className="text-xs uppercase tracking-[0.2em] text-muted">Sistem kasir</p>
-            <h1 className="font-display text-4xl tracking-tight">Warung Makmur</h1>
-          </div>
-          <p className="text-sm text-muted">Masuk ke toko Anda</p>
-          <h2 className="mt-1 font-display text-3xl tracking-tight">Selamat datang kembali</h2>
-
-          <div className="mt-6 grid grid-cols-2 rounded-xl bg-surface p-1 ring-1 ring-border">
-            {(["masuk", "daftar"] as const).map((m) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => {
-                  setMode(m);
-                  setError("");
-                }}
-                className={cn(
-                  "rounded-lg py-2.5 text-sm font-semibold capitalize",
-                  mode === m ? "bg-elevated text-fg shadow-sm" : "text-muted",
-                )}
-              >
-                {m}
-              </button>
-            ))}
-          </div>
-
-          <form onSubmit={(e) => void submit(e)} className="mt-6 space-y-4">
-            {error ? (
-              <p className="rounded-xl border border-danger/20 bg-danger/8 px-4 py-3 text-sm text-danger">
-                {error}
+            <div className="relative">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-200">
+                Sistem Manajemen Toko
               </p>
-            ) : null}
-            {mode === "daftar" ? (
-              <label className="block">
-                <span className="mb-1.5 block text-sm font-medium">Nama toko / pemilik</span>
-                <input
-                  className="field"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Nama Anda"
-                />
-              </label>
-            ) : null}
-            <label className="block">
-              <span className="mb-1.5 block text-sm font-medium">Email</span>
-              <input
-                className="field"
-                type="email"
-                required
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="nama@toko.com"
-              />
-            </label>
-            <label className="block">
-              <span className="mb-1.5 block text-sm font-medium">Kata sandi</span>
-              <div className="relative">
-                <input
-                  className="field pr-12"
-                  type={show ? "text" : "password"}
-                  required
-                  minLength={8}
-                  autoComplete={mode === "daftar" ? "new-password" : "current-password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Minimal 8 karakter"
-                />
-                <button
-                  type="button"
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-subtle"
-                  onClick={() => setShow((v) => !v)}
-                  aria-label={show ? "Sembunyikan kata sandi" : "Tampilkan kata sandi"}
-                >
-                  {show ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                </button>
-              </div>
-            </label>
-            <button type="submit" disabled={loading} className="btn-primary w-full">
-              {loading ? "Memproses…" : mode === "daftar" ? "Buat akun toko" : "Masuk ke kasir"}
-            </button>
-          </form>
+              <h1 className="mt-7 max-w-md text-4xl font-bold leading-tight tracking-tight xl:text-5xl">
+                Kelola bisnis Anda dengan lebih mudah.
+              </h1>
+              <p className="mt-5 max-w-md text-sm leading-7 text-emerald-50/75">
+                Satu sistem untuk membantu mengelola penjualan, stok, kas, pembelian, dan laporan
+                dari berbagai jenis toko dan bisnis.
+              </p>
+            </div>
 
-          {authEnabled ? (
-            <div className="mt-6">
-              <div className="mb-4 flex items-center gap-3 text-xs uppercase tracking-[0.16em] text-subtle">
-                <span className="h-px flex-1 bg-border" />
-                atau lanjut dengan
-                <span className="h-px flex-1 bg-border" />
-              </div>
-              <div className="grid gap-2">
-                {GROK_PROVIDERS.map((p) => (
+            <div className="relative grid grid-cols-3 gap-3">
+              {[
+                ["Penjualan", "Transaksi lebih teratur"],
+                ["Persediaan", "Stok lebih terkendali"],
+                ["Laporan", "Data mudah dipantau"],
+              ].map(([title, description]) => (
+                <div key={title} className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
+                  <p className="text-sm font-semibold">{title}</p>
+                  <p className="mt-1 text-xs leading-5 text-emerald-50/60">{description}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="flex min-h-[680px] items-center justify-center px-5 py-9 sm:px-10 lg:px-12 xl:px-16">
+            <div className="w-full max-w-md">
+              <header className="mb-7">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700 lg:hidden">
+                  Sistem Manajemen Toko
+                </p>
+                <h1 className="mt-3 text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">
+                  {mode === "masuk" ? "Selamat datang kembali" : "Buat akun Anda"}
+                </h1>
+                <p className="mt-2 max-w-md text-sm leading-6 text-slate-500">
+                  {mode === "masuk"
+                    ? "Masuk untuk mengelola toko, penjualan, stok, kas, dan laporan Anda."
+                    : "Daftar untuk mulai menyiapkan sistem manajemen toko Anda."}
+                </p>
+              </header>
+
+              <div className="grid grid-cols-2 rounded-2xl border border-slate-200 bg-slate-50 p-1.5">
+                {(["masuk", "daftar"] as const).map((item) => (
                   <button
-                    key={p.providerId}
+                    key={item}
                     type="button"
-                    onClick={() => void signIn(p.providerId, { callbackURL: "/dashboard" })}
-                    className="btn-ghost w-full"
+                    onClick={() => changeMode(item)}
+                    className={cn(
+                      "rounded-xl px-4 py-2.5 text-sm font-semibold transition-all",
+                      mode === item
+                        ? "bg-white text-slate-900 shadow-sm ring-1 ring-slate-200"
+                        : "text-slate-500 hover:text-slate-800",
+                    )}
                   >
-                    Lanjut dengan {p.label}
+                    {item === "masuk" ? "Masuk" : "Daftar"}
                   </button>
                 ))}
               </div>
+
+              <form onSubmit={(e) => void submit(e)} className="mt-6 space-y-4">
+                {error ? (
+                  <div
+                    role="alert"
+                    className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-5 text-red-700"
+                  >
+                    {error}
+                  </div>
+                ) : null}
+
+                {mode === "daftar" ? (
+                  <>
+                    <Field label="Nama lengkap" icon={<UserRound className="h-4 w-4" />}>
+                      <input
+                        className="universal-field"
+                        type="text"
+                        required
+                        autoComplete="name"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="Masukkan nama lengkap"
+                      />
+                    </Field>
+
+                    <Field label="Nomor HP" icon={<Phone className="h-4 w-4" />}>
+                      <input
+                        className="universal-field"
+                        type="tel"
+                        required
+                        autoComplete="tel"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        placeholder="08xxxxxxxxxx"
+                      />
+                    </Field>
+                  </>
+                ) : null}
+
+                <Field label="Email" icon={<Mail className="h-4 w-4" />}>
+                  <input
+                    className="universal-field"
+                    type="email"
+                    required
+                    autoComplete="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="nama@toko.com"
+                  />
+                </Field>
+
+                <Field label="Kata sandi" icon={<LockKeyhole className="h-4 w-4" />}>
+                  <div className="relative">
+                    <input
+                      className="universal-field pr-12"
+                      type={showPassword ? "text" : "password"}
+                      required
+                      minLength={8}
+                      autoComplete={mode === "daftar" ? "new-password" : "current-password"}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Masukkan kata sandi"
+                    />
+                    <PasswordToggle
+                      visible={showPassword}
+                      onClick={() => setShowPassword((value) => !value)}
+                      label={showPassword ? "Sembunyikan kata sandi" : "Tampilkan kata sandi"}
+                    />
+                  </div>
+                </Field>
+
+                {mode === "daftar" ? (
+                  <Field label="Konfirmasi kata sandi" icon={<LockKeyhole className="h-4 w-4" />}>
+                    <div className="relative">
+                      <input
+                        className="universal-field pr-12"
+                        type={showConfirmation ? "text" : "password"}
+                        required
+                        minLength={8}
+                        autoComplete="new-password"
+                        value={confirmation}
+                        onChange={(e) => setConfirmation(e.target.value)}
+                        placeholder="Ulangi kata sandi"
+                      />
+                      <PasswordToggle
+                        visible={showConfirmation}
+                        onClick={() => setShowConfirmation((value) => !value)}
+                        label={
+                          showConfirmation
+                            ? "Sembunyikan konfirmasi kata sandi"
+                            : "Tampilkan konfirmasi kata sandi"
+                        }
+                      />
+                    </div>
+                  </Field>
+                ) : null}
+
+                {mode === "masuk" ? (
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setError("Silakan hubungi administrator aplikasi untuk proses pemulihan kata sandi.")}
+                      className="text-sm font-semibold text-emerald-700 transition-colors hover:text-emerald-800 hover:underline"
+                    >
+                      Lupa kata sandi?
+                    </button>
+                  </div>
+                ) : null}
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="mt-1 flex w-full items-center justify-center rounded-xl bg-emerald-700 px-4 py-3.5 text-sm font-bold text-white shadow-[0_10px_24px_rgba(4,120,87,0.18)] transition-all hover:bg-emerald-800 hover:shadow-[0_12px_28px_rgba(4,120,87,0.24)] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {loading ? "Memproses…" : mode === "daftar" ? "Buat akun" : "Masuk ke aplikasi"}
+                </button>
+              </form>
+
+              {mode === "daftar" ? (
+                <p className="mt-5 text-center text-xs leading-5 text-slate-500">
+                  Setelah akun dibuat, pengaturan identitas toko dapat dilengkapi dari dalam aplikasi.
+                </p>
+              ) : null}
             </div>
-          ) : (
-            <p className="mt-6 text-sm text-muted">Masuk sedang dinonaktifkan.</p>
-          )}
+          </section>
         </div>
-      </section>
+      </div>
     </main>
   );
 }
 
-function ShelfMark() {
+function Field({
+  label,
+  icon,
+  children,
+}: {
+  label: string;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
-    <svg viewBox="0 0 420 180" className="my-10 w-full max-w-md text-ink-fg/80" aria-hidden="true">
-      <g fill="none" stroke="currentColor" strokeWidth="1.4">
-        <rect x="24" y="28" width="372" height="128" rx="6" opacity="0.45" />
-        <path d="M24 70h372M24 112h372" opacity="0.45" />
-        <rect x="48" y="40" width="54" height="22" rx="3" />
-        <rect x="118" y="40" width="72" height="22" rx="3" />
-        <rect x="210" y="40" width="44" height="22" rx="3" />
-        <rect x="48" y="82" width="88" height="22" rx="3" />
-        <rect x="154" y="82" width="50" height="22" rx="3" />
-        <rect x="224" y="82" width="66" height="22" rx="3" />
-        <rect x="48" y="124" width="40" height="22" rx="3" />
-        <rect x="106" y="124" width="96" height="22" rx="3" />
-        <rect x="220" y="124" width="58" height="22" rx="3" />
-      </g>
-    </svg>
+    <label className="block">
+      <span className="mb-1.5 flex items-center gap-2 text-sm font-semibold text-slate-700">
+        <span className="text-slate-400">{icon}</span>
+        {label}
+      </span>
+      {children}
+    </label>
+  );
+}
+
+function PasswordToggle({
+  visible,
+  onClick,
+  label,
+}: {
+  visible: boolean;
+  onClick: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+    >
+      {visible ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+    </button>
   );
 }
