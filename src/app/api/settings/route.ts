@@ -12,12 +12,12 @@ export async function GET() {
     if (!settings) {
       settings = await prisma.storeSettings.create({
         data: {
-          store_name: "Warung Sembako",
+          store_name: "",
           address: "",
           phone: "",
           whatsapp: "",
           email: "",
-          slogan: "Kelola Warung, Lebih Mudah",
+          slogan: "Kelola bisnis Anda dengan lebih mudah",
           footer_receipt: "Terima kasih telah berbelanja!",
         },
       });
@@ -37,7 +37,7 @@ export async function PUT(req: NextRequest) {
     const body = await req.json();
     const existing = await prisma.storeSettings.findFirst({ orderBy: { updated_at: "desc" } });
     const data = {
-      store_name: body.store_name ?? "Warung Sembako",
+      store_name: body.store_name ?? "",
       address: body.address ?? "",
       phone: body.phone ?? "",
       whatsapp: body.whatsapp ?? "",
