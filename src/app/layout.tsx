@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Warung Sembako - POS & Manajemen Warung",
-  description: "Kelola Warung, Lebih Mudah. Sistem POS profesional untuk warung sembako.",
+  title: "SISTEM MANAJEMEN TOKO",
+  description: "Kelola bisnis Anda dengan lebih mudah. Sistem manajemen toko untuk berbagai jenis toko dan bisnis.",
 };
 
 export default function RootLayout({
