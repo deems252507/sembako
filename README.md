@@ -22,3 +22,4 @@ npm install
 npm run dev
 ```
 Buka http://localhost:8080
+Deploy target: Vercel + Neon
