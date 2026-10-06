@@ -1,7 +1,8 @@
-import { createFileRoute, Navigate, useRouter } from "@tanstack/react-router";
+import { createFileRoute, Link, Navigate, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { Eye, EyeOff, LockKeyhole, Mail, Phone, UserRound } from "lucide-react";
 import { authClient } from "@/lib/auth/client";
+import { sendWelcomeEmail } from "@/lib/email/welcome";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { cn } from "@/lib/utils";
 
@@ -60,12 +61,15 @@ function UniversalLogin() {
         // Keep the existing Better Auth flow intact. The current auth schema
         // stores the user's name/email/password; phone is collected here for
         // the onboarding UX and can be completed in the store profile later.
+        const displayName = name.trim() || email.split("@")[0] || "Pengguna";
         const { error: err } = await authClient.signUp.email({
           email,
           password,
-          name: name.trim() || email.split("@")[0] || "Pengguna",
+          name: displayName,
         });
         if (err) throw new Error(err.message || "Gagal membuat akun.");
+        // Email selamat datang (tidak menghalangi login jika gagal kirim)
+        void sendWelcomeEmail({ data: { email, name: displayName } }).catch(() => {});
       } else {
         const { error: err } = await authClient.signIn.email({
           email,
@@ -251,13 +255,12 @@ function UniversalLogin() {
 
                 {mode === "masuk" ? (
                   <div className="flex justify-end">
-                    <button
-                      type="button"
-                      onClick={() => setError("Silakan hubungi administrator aplikasi untuk proses pemulihan kata sandi.")}
+                    <Link
+                      to="/lupa-password"
                       className="text-sm font-semibold text-emerald-700 transition-colors hover:text-emerald-800 hover:underline"
                     >
                       Lupa kata sandi?
-                    </button>
+                    </Link>
                   </div>
                 ) : null}
 
