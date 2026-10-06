@@ -55,6 +55,13 @@ export const usePosStore = create<PosState>()(
       hydrate: (snap, userId) => set({ ...snap, status: "ready", loadedFor: userId, error: null }),
       apply: (snap) => set({ ...snap, status: "ready", error: null }),
       bootstrap: async (userId) => {
+        if (typeof window !== "undefined") {
+          window.localStorage.removeItem("makmur-cart-v1");
+          window.localStorage.removeItem("cash_balance");
+        }
+        if (get().loadedFor && get().loadedFor !== userId) {
+          set({ cart: [], loadedFor: null, ...emptySnap(), status: "idle" });
+        }
         if (get().loadedFor === userId && get().status === "ready") return;
         set({ status: "loading", error: null });
         try {
@@ -99,8 +106,16 @@ export const usePosStore = create<PosState>()(
       clearCart: () => set({ cart: [] }),
     }),
     {
-      name: "makmur-cart-v1",
-      partialize: (s) => ({ cart: s.cart }),
+      name: "pos-cart",
+      partialize: (s) => ({ cart: s.cart, loadedFor: s.loadedFor }),
+      merge: (persisted, current) => {
+        const saved = persisted as { cart?: PosState["cart"]; loadedFor?: string | null };
+        return {
+          ...current,
+          cart: saved.cart ?? [],
+          loadedFor: saved.loadedFor ?? null,
+        };
+      },
     },
   ),
 );

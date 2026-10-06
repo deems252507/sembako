@@ -133,7 +133,7 @@ export const dashboardStats: DashboardStats = {
   transaksi_change: 8,
   laba_kotor: 985000,
   laba_change: 15,
-  kas_tersedia: 2480000,
+  kas_tersedia: 0,
   piutang: 450000,
   hutang_supplier: 1250000,
 };

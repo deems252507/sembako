@@ -15,18 +15,13 @@ import {
   mapStockLog,
   mapSupplier,
 } from "./map";
-import {
-  SEED_CUSTOMERS,
-  SEED_PRODUCTS,
-  SEED_PURCHASES,
-  SEED_STAFF,
-  SEED_SUPPLIERS,
-} from "./seed";
+import { formatSku } from "./identity";
 import type {
   PurchaseItem,
   SaleItem,
   StoreSnapshot,
 } from "./types";
+import type { Sql } from "@/lib/db";
 
 function invoiceNo(): string {
   const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
@@ -88,6 +83,66 @@ async function loadSnapshot(userId: string): Promise<StoreSnapshot> {
   };
 }
 
+async function nextSku(sql: Sql, userId: string): Promise<string> {
+  const rows = await sql<{ last_value: number }>`
+    insert into product_sku_counters (user_id, last_value)
+    values (
+      ${userId},
+      coalesce((
+        select max((substring(sku from '^SKU-([0-9]+)$'))::int)
+        from products
+        where user_id = ${userId}
+      ), 0) + 1
+    )
+    on conflict (user_id) do update
+      set last_value = product_sku_counters.last_value + 1
+    returning last_value
+  `;
+  return formatSku(Number(rows[0]?.last_value) || 1);
+}
+
+async function backfillSkus(sql: Sql, userId: string): Promise<void> {
+  const missing = await sql<{ id: string }>`
+    select id from products
+    where user_id = ${userId} and (sku is null or btrim(sku) = '')
+    order by created_at, id
+  `;
+  for (const row of missing) {
+    const sku = await nextSku(sql, userId);
+    await sql`
+      update products set sku = ${sku}
+      where id = ${row.id} and user_id = ${userId} and (sku is null or btrim(sku) = '')
+    `;
+  }
+}
+
+async function repairSeededCash(sql: Sql, userId: string): Promise<void> {
+  const profiles = await sql<{ cash_balance: unknown }>`
+    select cash_balance from store_profiles where user_id = ${userId}
+  `;
+  if (Number(profiles[0]?.cash_balance) !== 2480000) return;
+  const sales = await sql<{ n: number }>`
+    select count(*)::int as n from sales where user_id = ${userId}
+  `;
+  if (Number(sales[0]?.n) > 0) return;
+  const entries = await sql<{ note: string; kind: string; amount: unknown }>`
+    select note, kind, amount from cash_entries where user_id = ${userId}
+  `;
+  const signature = entries
+    .map((e) => `${e.kind}:${e.note}:${Number(e.amount)}`)
+    .sort()
+    .join("|");
+  const expected = [
+    "keluar:Biaya operasional:55000",
+    "keluar:Pembelian barang:1250000",
+    "masuk:Bayar hutang pelanggan:120000",
+    "masuk:Penjualan tunai:530000",
+  ].join("|");
+  if (entries.length !== 4 || signature !== expected) return;
+  await sql`delete from cash_entries where user_id = ${userId}`;
+  await sql`update store_profiles set cash_balance = 0 where user_id = ${userId}`;
+}
+
 async function seedIfNeeded(userId: string): Promise<void> {
   const sql = await getSql();
   const existing = await sql<{ user_id: string }>`
@@ -107,60 +162,8 @@ async function seedIfNeeded(userId: string): Promise<void> {
       ${""},
       ${""},
       ${"Terima kasih telah berbelanja!"},
-      ${2480000}
+      ${0}
     )
-  `;
-
-  for (const p of SEED_PRODUCTS) {
-    await sql`
-      insert into products (
-        id, user_id, name, sku, barcode, category, unit, buy_price, sell_price, stock, min_stock, image, status
-      ) values (
-        ${p.id}, ${userId}, ${p.name}, ${p.sku}, ${p.barcode}, ${p.category}, ${p.unit},
-        ${p.buyPrice}, ${p.sellPrice}, ${p.stock}, ${p.minStock}, ${p.image}, ${p.status}
-      )
-    `;
-  }
-  for (const c of SEED_CUSTOMERS) {
-    await sql`
-      insert into customers (id, user_id, name, phone, total_spent, debt_total, debt_remaining)
-      values (${c.id}, ${userId}, ${c.name}, ${c.phone}, ${c.totalSpent}, ${c.debtTotal}, ${c.debtRemaining})
-    `;
-  }
-  for (const s of SEED_SUPPLIERS) {
-    await sql`
-      insert into suppliers (id, user_id, name, phone, total_purchase, debt)
-      values (${s.id}, ${userId}, ${s.name}, ${s.phone}, ${s.totalPurchase}, ${s.debt})
-    `;
-  }
-  for (const p of SEED_PURCHASES) {
-    await sql`
-      insert into purchases (id, user_id, date, supplier_id, supplier_name, total, status, items)
-      values (
-        ${p.id}, ${userId}, ${p.date}::date, ${p.supplierId}, ${p.supplierName},
-        ${p.total}, ${p.status}, ${JSON.stringify(p.items)}
-      )
-    `;
-  }
-  for (const s of SEED_STAFF) {
-    await sql`
-      insert into staff (id, user_id, name, username, role, is_active)
-      values (${s.id}, ${userId}, ${s.name}, ${s.username}, ${s.role}, ${s.isActive})
-    `;
-  }
-
-  await sql`
-    insert into cash_entries (id, user_id, date, note, kind, amount)
-    values
-      (${nid()}, ${userId}, ${"2026-10-01T08:00:00+08:00"}::timestamptz, ${"Penjualan tunai"}, ${"masuk"}, ${530000}),
-      (${nid()}, ${userId}, ${"2026-10-01T09:00:00+08:00"}::timestamptz, ${"Pembelian barang"}, ${"keluar"}, ${1250000}),
-      (${nid()}, ${userId}, ${"2026-10-01T10:00:00+08:00"}::timestamptz, ${"Biaya operasional"}, ${"keluar"}, ${55000}),
-      (${nid()}, ${userId}, ${"2026-09-30T16:00:00+08:00"}::timestamptz, ${"Bayar hutang pelanggan"}, ${"masuk"}, ${120000})
-  `;
-
-  await sql`
-    insert into shifts (id, user_id, opened_at, initial_cash, status)
-    values (${nid()}, ${userId}, ${"2026-10-01T07:00:00+08:00"}::timestamptz, ${500000}, ${"open"})
   `;
 }
 
@@ -168,13 +171,16 @@ export const loadStore = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
   .handler(async ({ context }) => {
     await seedIfNeeded(context.userId);
+    const sql = await getSql();
+    await repairSeededCash(sql, context.userId);
+    await backfillSkus(sql, context.userId);
     return loadSnapshot(context.userId);
   });
 
 const productInput = z.object({
   id: z.string().optional(),
   name: z.string().min(1),
-  sku: z.string().min(1),
+  sku: z.string().optional().default(""),
   barcode: z.string().optional().default(""),
   category: z.string().min(1),
   unit: z.string().min(1),
@@ -192,22 +198,50 @@ export const upsertProduct = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     const id = data.id || nid();
+    const barcode = data.barcode.trim();
+    if (barcode) {
+      const dupes = await sql<Record<string, unknown>>`
+        select * from products
+        where user_id = ${context.userId} and barcode = ${barcode} and id <> ${id}
+        limit 1
+      `;
+      const dupe = dupes[0];
+      if (dupe) {
+        throw new Error(`PRODUCT_CONFLICT:${JSON.stringify({
+          code: "BARCODE_USED",
+          product: {
+            id: String(dupe.id),
+            name: String(dupe.name),
+            sku: String(dupe.sku),
+            barcode: String(dupe.barcode ?? ""),
+            stock: Number(dupe.stock) || 0,
+          },
+        })}`);
+      }
+    }
     if (data.id) {
+      const current = await sql<{ sku: string; image: string | null }>`
+        select sku, image from products where id = ${id} and user_id = ${context.userId}
+      `;
+      if (!current[0]) throw new Error("Produk tidak ditemukan");
+      const sku = current[0].sku?.trim() ? current[0].sku : await nextSku(sql, context.userId);
+      const image = data.image;
       await sql`
         update products set
-          name = ${data.name}, sku = ${data.sku}, barcode = ${data.barcode},
+          name = ${data.name}, sku = ${sku}, barcode = ${barcode},
           category = ${data.category}, unit = ${data.unit},
           buy_price = ${data.buyPrice}, sell_price = ${data.sellPrice},
           stock = ${data.stock}, min_stock = ${data.minStock},
-          image = ${data.image}, status = ${data.status}
+          image = ${image}, status = ${data.status}
         where id = ${id} and user_id = ${context.userId}
       `;
     } else {
+      const sku = await nextSku(sql, context.userId);
       await sql`
         insert into products (
           id, user_id, name, sku, barcode, category, unit, buy_price, sell_price, stock, min_stock, image, status
         ) values (
-          ${id}, ${context.userId}, ${data.name}, ${data.sku}, ${data.barcode},
+          ${id}, ${context.userId}, ${data.name}, ${sku}, ${barcode},
           ${data.category}, ${data.unit}, ${data.buyPrice}, ${data.sellPrice},
           ${data.stock}, ${data.minStock}, ${data.image}, ${data.status}
         )

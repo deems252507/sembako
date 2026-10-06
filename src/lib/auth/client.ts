@@ -219,6 +219,18 @@ function waitForPopupToken(popup: Window): Promise<string | null> {
  * preview the local clear is sufficient, so it always resolves.
  */
 export async function signOut(redirectTo = "/"): Promise<void> {
+  if (typeof window !== "undefined") {
+    window.localStorage.removeItem("makmur-cart-v1");
+    window.localStorage.removeItem("pos-cart");
+    window.localStorage.removeItem("cash_balance");
+    const drop: string[] = [];
+    for (let i = 0; i < window.localStorage.length; i += 1) {
+      const key = window.localStorage.key(i);
+      if (key && (key.startsWith("pos-cart:") || key.startsWith("cash_balance_"))) drop.push(key);
+    }
+    for (const key of drop) window.localStorage.removeItem(key);
+  }
+
   await runSignOut({
     livePreview: inLivePreview(),
     hasBearer: Boolean(getBearerToken()),
