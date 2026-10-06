@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { Package, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { Camera, ImagePlus, Package, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
+import { BarcodeScanner } from "@/components/barcode-scanner";
 import { Modal } from "@/components/ui/modal";
 import { PageHeader } from "@/components/ui/page-header";
 import { deleteProduct, upsertProduct } from "@/lib/pos/actions";
@@ -44,6 +45,8 @@ function ProdukPage() {
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<typeof empty>(empty);
+  const [camera, setCamera] = useState(false);
+  const [cameraTarget, setCameraTarget] = useState<"list" | "form">("list");
 
   const filtered = products.filter(
     (p) =>
@@ -75,6 +78,75 @@ function ProdukPage() {
     setOpen(true);
   };
 
+  const handleProductScan = (code: string) => {
+    const value = code.trim();
+    if (!value) return;
+    const found = products.find(
+      (p) => p.status === "aktif" && (p.barcode === value || p.sku === value),
+    );
+    if (found) {
+      setEditId(found.id);
+      setForm({
+        name: found.name,
+        sku: found.sku,
+        barcode: found.barcode,
+        category: found.category,
+        unit: found.unit,
+        buyPrice: found.buyPrice,
+        sellPrice: found.sellPrice,
+        stock: found.stock,
+        minStock: found.minStock,
+        image: found.image,
+        status: found.status,
+      });
+      setOpen(true);
+      toast.success(`${found.name} ditemukan`);
+      return;
+    }
+    setEditId(null);
+    setForm({ ...empty, barcode: value, sku: value });
+    setOpen(true);
+    toast.success("Barcode dimasukkan. Lengkapi data produk.");
+  };
+
+  const handleImage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("File harus berupa gambar.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Ukuran gambar maksimal 5 MB.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const source = String(reader.result || "");
+      const img = new Image();
+      img.onload = () => {
+        const max = 900;
+        const scale = Math.min(1, max / Math.max(img.width, img.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(img.width * scale));
+        canvas.height = Math.max(1, Math.round(img.height * scale));
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          setForm((current) => ({ ...current, image: source }));
+          return;
+        }
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const compressed = canvas.toDataURL("image/webp", 0.82);
+        setForm((current) => ({ ...current, image: compressed }));
+      };
+      img.onerror = () => toast.error("Gambar tidak dapat dibaca.");
+      img.src = source;
+    };
+    reader.readAsDataURL(file);
+    event.target.value = "";
+  };
+
   const save = async () => {
     if (!form.name || !form.sku) return toast.error("Nama dan SKU wajib");
     const snap = await upsertProduct({ data: { ...form, id: editId ?? undefined } });
@@ -92,9 +164,14 @@ function ProdukPage() {
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-subtle" />
             <input className="field pl-10" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari nama, SKU, barcode" />
           </div>
-          <button type="button" className="btn-primary" onClick={openAdd}>
-            <Plus className="h-4 w-4" /> Tambah produk
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className="btn-ghost" onClick={() => { setCameraTarget("list"); setCamera(true); }}>
+              <Camera className="h-4 w-4" /> Scan barcode
+            </button>
+            <button type="button" className="btn-primary" onClick={openAdd}>
+              <Plus className="h-4 w-4" /> Tambah produk
+            </button>
+          </div>
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {filtered.map((p) => (
@@ -136,10 +213,44 @@ function ProdukPage() {
         </div>
       </main>
       <Modal open={open} onClose={() => setOpen(false)} title={editId ? "Edit produk" : "Produk baru"} wide>
-        <div className="grid grid-cols-2 gap-3">
-          <input className="field col-span-2" placeholder="Nama" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-          <input className="field" placeholder="SKU" value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} />
-          <input className="field" placeholder="Barcode" value={form.barcode} onChange={(e) => setForm({ ...form, barcode: e.target.value })} />
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-border bg-elevated p-3">
+            <div className="flex items-center gap-3">
+              <div className="grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-xl border border-border bg-bg">
+                {form.image ? (
+                  <img src={form.image} alt="Pratinjau produk" className="h-full w-full object-cover" />
+                ) : (
+                  <ImagePlus className="h-7 w-7 text-subtle" />
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium">Gambar produk</p>
+                <p className="mt-0.5 text-xs text-muted">Tambahkan foto produk agar mudah dikenali di kasir.</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <label className="btn-ghost cursor-pointer">
+                    <ImagePlus className="h-4 w-4" /> Pilih gambar
+                    <input type="file" accept="image/*" className="hidden" onChange={handleImage} />
+                  </label>
+                  {form.image ? (
+                    <button type="button" className="btn-ghost text-danger" onClick={() => setForm({ ...form, image: "" })}>
+                      <X className="h-4 w-4" /> Hapus
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <input className="field col-span-2" placeholder="Nama" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+            <input className="field" placeholder="SKU" value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} />
+            <div className="flex gap-2">
+              <input className="field min-w-0 flex-1" placeholder="Barcode" value={form.barcode} onChange={(e) => setForm({ ...form, barcode: e.target.value })} />
+              <button type="button" className="btn-ghost shrink-0" onClick={() => { setCameraTarget("form"); setCamera(true); }} title="Scan barcode dengan kamera">
+                <Camera className="h-4 w-4" />
+                <span className="hidden sm:inline">Scan</span>
+              </button>
+            </div>
           <select className="field" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
             {CATEGORIES.filter((c) => c !== "Semua").map((c) => <option key={c}>{c}</option>)}
           </select>
@@ -147,12 +258,27 @@ function ProdukPage() {
           <input className="field" type="number" placeholder="Harga beli" value={form.buyPrice || ""} onChange={(e) => setForm({ ...form, buyPrice: Number(e.target.value) })} />
           <input className="field" type="number" placeholder="Harga jual" value={form.sellPrice || ""} onChange={(e) => setForm({ ...form, sellPrice: Number(e.target.value) })} />
           <input className="field" type="number" placeholder="Stok" value={form.stock || ""} onChange={(e) => setForm({ ...form, stock: Number(e.target.value) })} />
-          <input className="field" type="number" placeholder="Stok minimum" value={form.minStock || ""} onChange={(e) => setForm({ ...form, minStock: Number(e.target.value) })} />
+            <input className="field" type="number" placeholder="Stok minimum" value={form.minStock || ""} onChange={(e) => setForm({ ...form, minStock: Number(e.target.value) })} />
+          </div>
         </div>
         <button type="button" className="btn-primary mt-4 w-full" onClick={() => void save()}>
           Simpan
         </button>
       </Modal>
+      {camera ? (
+        <BarcodeScanner
+          onScan={(code) => {
+            setCamera(false);
+            if (cameraTarget === "form") {
+              setForm((current) => ({ ...current, barcode: code }));
+              toast.success(`Barcode ${code} berhasil dimasukkan`);
+            } else {
+              handleProductScan(code);
+            }
+          }}
+          onClose={() => setCamera(false)}
+        />
+      ) : null}
     </>
   );
 }
