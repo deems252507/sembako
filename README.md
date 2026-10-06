@@ -1,25 +1,18 @@
-# Warung Sembako POS
+# Aplikasi Kasir / POS
 
-## Database Neon (wajib agar data sama di semua HP/PC)
+Sumber kode web app kasir (dashboard, produk, stok, hutang, keuangan, shift).
 
-1. Buka https://console.neon.tech → buat project
-2. Copy **Connection string** (PostgreSQL)
-3. Di **Vercel** → Project → Settings → Environment Variables:
-   - Name: `DATABASE_URL`
-   - Value: `postgresql://...@...neon.tech/neondb?sslmode=require`
-4. Redeploy project
-5. Jalankan migrasi tabel (satu kali), dari laptop:
+## Yang di-upload ke GitHub
+Folder ini sudah dibersihkan. Jangan upload:
+- `node_modules/`
+- `.vercel/` (hasil build)
+- `.grok/` (file internal workspace)
 
+## Cara jalan lokal
 ```bash
-# Set DATABASE_URL dulu
-export DATABASE_URL="postgresql://..."
-npx prisma db push
+npm install
+npm run dev
 ```
+Buka http://localhost:8080
 
-Atau di Vercel, tambah build command:
-`prisma generate && prisma db push && next build`
-
-Setelah itu, buka **Pengaturan** → Simpan → nama toko tersimpan di database dan sama di semua perangkat.
-
-## Login
-Username & password bebas (demo), contoh: admin / admin
+Database lokal memakai PGlite. Untuk production (Vercel/Neon), set `DATABASE_URL` di environment, jangan taruh di kode.
