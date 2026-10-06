@@ -244,7 +244,7 @@ function KasirPage() {
       <div class="center muted" style="margin-top:8px">${esc(footer)}</div>
     `;
     const ok = openPrintHtml(thermalShell(`Struk ${sale.invoice}`, body), { width: 320, height: 640 });
-    if (!ok) toast.error("Popup diblokir — izinkan popup untuk mencetak struk");
+    if (!ok) toast.error("Gagal mencetak. Coba lagi.");
   };
 
   return (
@@ -352,7 +352,7 @@ function KasirPage() {
                     setMobileCart(true);
                     toast.success(`${p.name} masuk keranjang`);
                   }}
-                  className="card p-3 text-left transition-transform duration-150 hover:border-accent/40 active:scale-[0.98]"
+                  className="card p-3 text-left transition-all duration-150 hover:border-accent/40 hover:shadow-sm active:scale-[0.98]"
                 >
                   <div className="mb-2 flex h-16 items-center justify-center overflow-hidden rounded-lg bg-bg">
                     {p.image ? (
@@ -375,7 +375,7 @@ function KasirPage() {
           </div>
         </section>
 
-        <aside className="hidden w-[380px] flex-col border-l border-border bg-surface lg:flex">
+        <aside className="hidden w-[380px] flex-col border-l border-border bg-surface shadow-[-4px_0_24px_rgba(15,61,42,0.03)] lg:flex">
           <CartPanel
             cart={cart}
             total={total}
@@ -715,7 +715,7 @@ function CartPanel({
   removeFromCart: (id: string) => void;
 }) {
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col bg-surface">
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <h3 className="flex items-center gap-2 font-semibold">
           <ShoppingCart className="h-4 w-4" /> Keranjang
@@ -792,7 +792,7 @@ function CartPanel({
           ))}
         </div>
         <button type="button" disabled={cart.length === 0} className="btn-primary w-full" onClick={onPay}>
-          Bayar sekarang
+          Proses Transaksi
         </button>
       </div>
     </div>

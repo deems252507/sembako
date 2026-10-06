@@ -1,43 +1,82 @@
-/** Buka jendela cetak yang andal (hindari about:blank kosong). */
+/** Cetak lewat iframe tersembunyi — tidak butuh izin popup browser. */
 export function openPrintHtml(
   html: string,
-  opts?: { width?: number; height?: number },
+  _opts?: { width?: number; height?: number },
 ): boolean {
-  const width = opts?.width ?? 360;
-  const height = opts?.height ?? 640;
-  const win = window.open("", "_blank", `noopener,noreferrer,width=${width},height=${height}`);
-  if (!win) return false;
+  if (typeof document === "undefined") return false;
 
   try {
+    // Bersihkan iframe cetak sebelumnya
+    document.querySelectorAll("iframe[data-pos-print]").forEach((el) => el.remove());
+
+    const iframe = document.createElement("iframe");
+    iframe.setAttribute("data-pos-print", "1");
+    iframe.setAttribute("aria-hidden", "true");
+    iframe.style.cssText =
+      "position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0;pointer-events:none;";
+    document.body.appendChild(iframe);
+
+    const win = iframe.contentWindow;
+    const doc = iframe.contentDocument || win?.document;
+    if (!win || !doc) {
+      iframe.remove();
+      return fallbackPrint(html);
+    }
+
+    doc.open();
+    doc.write(html);
+    doc.close();
+
+    const doPrint = () => {
+      try {
+        win.focus();
+        win.print();
+      } catch {
+        /* ignore */
+      }
+      // Hapus setelah dialog print ditutup (delay aman)
+      window.setTimeout(() => {
+        try {
+          iframe.remove();
+        } catch {
+          /* ignore */
+        }
+      }, 1500);
+    };
+
+    // Tunggu resource/layout siap
+    if (doc.readyState === "complete") {
+      window.setTimeout(doPrint, 150);
+    } else {
+      iframe.onload = () => window.setTimeout(doPrint, 150);
+      window.setTimeout(doPrint, 500);
+    }
+    return true;
+  } catch {
+    return fallbackPrint(html);
+  }
+}
+
+/** Cadangan: window.open hanya jika iframe gagal total */
+function fallbackPrint(html: string): boolean {
+  try {
+    const win = window.open("", "_blank", "noopener,noreferrer,width=400,height=600");
+    if (!win) return false;
     win.document.open();
     win.document.write(html);
     win.document.close();
+    window.setTimeout(() => {
+      try {
+        win.focus();
+        win.print();
+      } catch {
+        /* ignore */
+      }
+    }, 200);
+    return true;
   } catch {
-    try {
-      win.close();
-    } catch {
-      /* ignore */
-    }
     return false;
   }
-
-  const tryPrint = () => {
-    try {
-      win.focus();
-      win.print();
-    } catch {
-      /* ignore */
-    }
-  };
-
-  // Beberapa browser butuh jeda singkat agar layout siap
-  if (win.document.readyState === "complete") {
-    window.setTimeout(tryPrint, 200);
-  } else {
-    win.onload = () => window.setTimeout(tryPrint, 150);
-    window.setTimeout(tryPrint, 600);
-  }
-  return true;
 }
 
 export function esc(s: string | number | null | undefined): string {

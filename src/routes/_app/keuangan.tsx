@@ -75,25 +75,25 @@ function KeuanganPage() {
       width: 900,
       height: 700,
     });
-    if (!ok) toast.error("Popup diblokir — izinkan popup untuk mencetak PDF");
+    if (!ok) toast.error("Gagal mencetak. Coba lagi.");
   };
 
   return (
     <>
       <PageHeader title="Keuangan" />
-      <main className="space-y-4 p-4 lg:p-6">
+      <main className="page-main space-y-4 p-4 lg:p-6">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div className="card p-5">
+          <div className="card-stat">
             <p className="text-sm text-muted">Saldo Kas</p>
-            <p className="text-2xl font-semibold tabular text-green-600">{formatRupiah(profile.cashBalance)}</p>
+            <p className="text-xl font-semibold tabular text-accent">{formatRupiah(profile.cashBalance)}</p>
           </div>
-          <div className="card p-5">
+          <div className="card-stat">
             <p className="text-sm text-muted">Total Kas Masuk</p>
-            <p className="text-2xl font-semibold text-success tabular">{formatRupiah(masuk)}</p>
+            <p className="text-xl font-semibold text-success tabular">{formatRupiah(masuk)}</p>
           </div>
-          <div className="card p-5">
+          <div className="card-stat">
             <p className="text-sm text-muted">Total Kas Keluar</p>
-            <p className="text-2xl font-semibold text-danger tabular">{formatRupiah(keluar)}</p>
+            <p className="text-xl font-semibold text-danger tabular">{formatRupiah(keluar)}</p>
           </div>
         </div>
 
@@ -124,7 +124,7 @@ function KeuanganPage() {
           </div>
         </div>
 
-        <div className="card overflow-hidden">
+        <div className="table-wrap">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-bg text-left text-muted">

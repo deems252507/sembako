@@ -77,14 +77,16 @@ function DashboardPage() {
   return (
     <>
       <PageHeader title="Dashboard" subtitle={profile.storeName} />
-      <main className="space-y-6 p-4 lg:p-6">
+      <main className="page-main space-y-5 p-4 lg:p-6">
         <div>
-          <h2 className="font-display text-2xl tracking-tight">
-            Selamat datang, {user?.displayName || "Pemilik"}
+          <h2 className="text-xl font-semibold tracking-tight text-fg lg:text-2xl">
+            Selamat datang, {user?.displayName || "Admin"}
           </h2>
-          <p className="text-sm text-muted">{profile.storeName}</p>
+          <p className="mt-1 text-sm text-muted">
+            Berikut ringkasan kondisi toko Anda hari ini.
+          </p>
         </div>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <Stat title="Omzet hari ini" value={formatRupiah(omzet)} icon={TrendingUp} />
           <Stat title="Transaksi hari ini" value={String(todaySales.length)} icon={ShoppingBag} />
           <Stat title="Laba kotor hari ini" value={formatRupiah(laba)} icon={Wallet} />
@@ -92,27 +94,27 @@ function DashboardPage() {
         </div>
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
           <div className="card p-5 xl:col-span-2">
-            <h3 className="mb-4 font-semibold">Penjualan 7 hari</h3>
+            <h3 className="mb-4 text-sm font-semibold text-fg">Penjualan 7 hari</h3>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={chart}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2ddd2" />
-                  <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "#6b7268" }} />
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5ebe7" />
+                  <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "#6b7280" }} />
                   <YAxis
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fontSize: 12, fill: "#6b7268" }}
+                    tick={{ fontSize: 12, fill: "#6b7280" }}
                     tickFormatter={(v) => `${Math.round(Number(v) / 1000)}rb`}
                   />
                   <Tooltip formatter={(v: number) => formatRupiah(v)} />
-                  <Bar dataKey="penjualan" fill="#2f6f4e" radius={[4, 4, 0, 0]} name="Penjualan" />
-                  <Bar dataKey="pembelian" fill="#c5d9cc" radius={[4, 4, 0, 0]} name="Pembelian" />
+                  <Bar dataKey="penjualan" fill="#1b7a4e" radius={[4, 4, 0, 0]} name="Penjualan" />
+                  <Bar dataKey="pembelian" fill="#b8dcc8" radius={[4, 4, 0, 0]} name="Pembelian" />
                 </BarChart>
               </ResponsiveContainer>
             </div>
           </div>
           <div className="card p-5">
-            <h3 className="mb-4 font-semibold">Produk terlaris</h3>
+            <h3 className="mb-4 text-sm font-semibold text-fg">Produk terlaris</h3>
             {top.length === 0 ? (
               <p className="text-sm text-muted">Belum ada penjualan.</p>
             ) : (
@@ -176,13 +178,13 @@ function Stat({
   icon: typeof Wallet;
 }) {
   return (
-    <div className="card flex items-start justify-between p-5">
-      <div>
-        <p className="text-sm text-muted">{title}</p>
-        <p className="mt-1 text-2xl font-semibold tabular">{value}</p>
+    <div className="card-stat flex items-start justify-between gap-3">
+      <div className="min-w-0">
+        <p className="text-xs font-medium text-muted">{title}</p>
+        <p className="mt-1 truncate text-xl font-semibold tracking-tight tabular lg:text-2xl">{value}</p>
       </div>
-      <div className="grid h-10 w-10 place-items-center rounded-xl bg-accent-soft text-success">
-        <Icon className="h-5 w-5" />
+      <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-accent-soft text-success">
+        <Icon className="h-4 w-4" />
       </div>
     </div>
   );

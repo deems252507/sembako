@@ -75,7 +75,7 @@ function LaporanPage() {
       <div class="center muted" style="margin-top:8px">${esc(footer)}</div>
     `;
     const ok = openPrintHtml(thermalShell(`Struk ${trx.invoice}`, body), { width: 320, height: 640 });
-    if (!ok) toast.error("Popup diblokir — izinkan popup untuk mencetak");
+    if (!ok) toast.error("Gagal mencetak. Coba lagi.");
   };
 
   const handleDelete = async (t: Sale) => {
@@ -88,19 +88,19 @@ function LaporanPage() {
   return (
     <>
       <PageHeader title="Laporan & Riwayat" />
-      <main className="space-y-4 p-4 lg:p-6">
+      <main className="page-main space-y-4 p-4 lg:p-6">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div className="card p-5">
-            <p className="text-sm text-muted">Total Omzet (filter)</p>
-            <p className="font-display text-2xl tabular text-green-600">{formatRupiah(omzet)}</p>
+          <div className="card-stat">
+            <p className="text-xs font-medium text-muted">Total Penjualan</p>
+            <p className="mt-1 text-xl font-semibold tabular text-accent">{formatRupiah(omzet)}</p>
           </div>
-          <div className="card p-5">
-            <p className="text-sm text-muted">Jumlah Transaksi</p>
-            <p className="font-display text-2xl tabular">{filtered.length}</p>
+          <div className="card-stat">
+            <p className="text-xs font-medium text-muted">Jumlah Transaksi</p>
+            <p className="mt-1 text-xl font-semibold tabular">{filtered.length}</p>
           </div>
-          <div className="card p-5">
-            <p className="text-sm text-muted">Semua Transaksi</p>
-            <p className="font-display text-2xl tabular">{sales.length}</p>
+          <div className="card-stat">
+            <p className="text-xs font-medium text-muted">Semua Transaksi</p>
+            <p className="mt-1 text-xl font-semibold tabular">{sales.length}</p>
           </div>
         </div>
 
@@ -127,7 +127,7 @@ function LaporanPage() {
           ) : null}
         </div>
 
-        <div className="card overflow-hidden">
+        <div className="table-wrap">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>

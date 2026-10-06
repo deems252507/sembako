@@ -23,11 +23,20 @@ function StokPage() {
   return (
     <>
       <PageHeader title="Stok" subtitle="Koreksi stok fisik" />
-      <main className="space-y-4 p-4 lg:p-6">
+      <main className="page-main space-y-4 p-4 lg:p-6">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div className="card p-5"><p className="text-sm text-muted">Total produk</p><p className="text-2xl font-semibold">{products.length}</p></div>
-          <div className="card p-5"><p className="text-sm text-muted">Menipis</p><p className="text-2xl font-semibold text-warning">{low.length}</p></div>
-          <div className="card p-5"><p className="text-sm text-muted">Habis</p><p className="text-2xl font-semibold text-danger">{empty.length}</p></div>
+          <div className="card-stat">
+            <p className="text-xs font-medium text-muted">Total Produk</p>
+            <p className="mt-1 text-xl font-semibold tabular">{products.length}</p>
+          </div>
+          <div className="card-stat">
+            <p className="text-xs font-medium text-muted">Stok Menipis</p>
+            <p className="mt-1 text-xl font-semibold tabular text-warning">{low.length}</p>
+          </div>
+          <div className="card-stat">
+            <p className="text-xs font-medium text-muted">Stok Habis</p>
+            <p className="mt-1 text-xl font-semibold tabular text-danger">{empty.length}</p>
+          </div>
         </div>
         {low.length > 0 ? (
           <div className="card border-warning/30 bg-warning/8 p-4">
@@ -37,7 +46,7 @@ function StokPage() {
             <p className="text-sm text-muted">{low.map((p) => p.name).join(", ")}</p>
           </div>
         ) : null}
-        <div className="card overflow-hidden">
+        <div className="table-wrap">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-bg text-left text-muted">

@@ -1,11 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { Eye, Printer, Search } from "lucide-react";
+import { Eye, Pencil, Plus, Printer, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Modal } from "@/components/ui/modal";
 import { PageHeader } from "@/components/ui/page-header";
 import { MoneyInput } from "@/components/money-input";
-import { payCustomerDebt, paySupplierDebt } from "@/lib/pos/actions";
+import {
+  deleteCustomer,
+  deleteSupplier,
+  payCustomerDebt,
+  paySupplierDebt,
+  saveCustomer,
+  saveSupplier,
+} from "@/lib/pos/actions";
 import { usePosStore } from "@/lib/pos/store";
 import type { Customer, Purchase, Sale } from "@/lib/pos/types";
 import { a4Shell, esc, openPrintHtml, thermalShell } from "@/lib/pos/print";
@@ -39,6 +46,92 @@ function HutangPage() {
     name: string;
     debt: number;
   } | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
+  const [formKind, setFormKind] = useState<"pelanggan" | "supplier">("pelanggan");
+  const [editId, setEditId] = useState<string | null>(null);
+  const [formName, setFormName] = useState("");
+  const [formPhone, setFormPhone] = useState("");
+
+
+  const openAdd = (kind: "pelanggan" | "supplier") => {
+    setFormKind(kind);
+    setEditId(null);
+    setFormName("");
+    setFormPhone("");
+    setFormOpen(true);
+  };
+
+  const openEditPelanggan = (c: Customer) => {
+    setFormKind("pelanggan");
+    setEditId(c.id);
+    setFormName(c.name);
+    setFormPhone(c.phone || "");
+    setFormOpen(true);
+  };
+
+  const openEditSupplier = (s: { id: string; name: string; phone?: string }) => {
+    setFormKind("supplier");
+    setEditId(s.id);
+    setFormName(s.name);
+    setFormPhone(s.phone || "");
+    setFormOpen(true);
+  };
+
+  const handleSaveForm = async () => {
+    if (!formName.trim()) {
+      toast.error("Nama wajib diisi");
+      return;
+    }
+    try {
+      if (formKind === "pelanggan") {
+        apply(
+          await saveCustomer({
+            data: { id: editId ?? undefined, name: formName.trim(), phone: formPhone.trim() },
+          }),
+        );
+      } else {
+        apply(
+          await saveSupplier({
+            data: { id: editId ?? undefined, name: formName.trim(), phone: formPhone.trim() },
+          }),
+        );
+      }
+      setFormOpen(false);
+      toast.success(editId ? "Disimpan" : "Ditambahkan");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal simpan");
+    }
+  };
+
+  const handleDeletePelanggan = async (c: Customer) => {
+    if (c.debtRemaining > 0) {
+      toast.error("Masih ada sisa hutang — lunasi dulu atau set ke 0");
+      return;
+    }
+    if (!confirm(`Hapus pelanggan ${c.name}?`)) return;
+    try {
+      apply(await deleteCustomer({ data: { id: c.id } }));
+      toast.success("Dihapus");
+      if (detailCust?.id === c.id) setDetailCust(null);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal hapus");
+    }
+  };
+
+  const handleDeleteSupplier = async (s: { id: string; name: string; debt: number }) => {
+    if (s.debt > 0) {
+      toast.error("Masih ada sisa hutang supplier");
+      return;
+    }
+    if (!confirm(`Hapus supplier ${s.name}?`)) return;
+    try {
+      apply(await deleteSupplier({ data: { id: s.id } }));
+      toast.success("Dihapus");
+      if (detailSupplier?.id === s.id) setDetailSupplier(null);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal hapus");
+    }
+  };
 
   const totalPiutang = customers.reduce((s, c) => s + c.debtRemaining, 0);
   const totalHutang = suppliers.reduce((s, c) => s + c.debt, 0);
@@ -108,7 +201,7 @@ function HutangPage() {
       <div class="center muted" style="margin-top:8px">Harap dilunasi sesuai kesepakatan</div>
     `;
     const ok = openPrintHtml(thermalShell(`Bon ${sale.invoice}`, body), { width: 320, height: 640 });
-    if (!ok) toast.error("Popup diblokir — izinkan popup untuk cetak");
+    if (!ok) toast.error("Gagal mencetak. Coba lagi.");
   };
 
   const handlePrintPiutang = () => {
@@ -233,13 +326,13 @@ function HutangPage() {
       width: 900,
       height: 700,
     });
-    if (!ok) toast.error("Popup diblokir — izinkan popup untuk cetak PDF");
+    if (!ok) toast.error("Gagal mencetak. Coba lagi.");
   };
 
   return (
     <>
       <PageHeader title="Hutang & Piutang" />
-      <main className="space-y-4 p-4 lg:p-6">
+      <main className="page-main space-y-4 p-4 lg:p-6">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="card p-5">
             <p className="text-sm text-muted">Total Piutang Pelanggan</p>
@@ -307,15 +400,24 @@ function HutangPage() {
               </button>
             ))}
             {tab === "piutang" ? (
-              <button type="button" className="btn-ghost" onClick={handlePrintPiutang}>
-                <Printer className="h-4 w-4" /> Cetak PDF
+              <>
+                <button type="button" className="btn-ghost" onClick={handlePrintPiutang}>
+                  <Printer className="h-4 w-4" /> Cetak PDF
+                </button>
+                <button type="button" className="btn-primary" onClick={() => openAdd("pelanggan")}>
+                  <Plus className="h-4 w-4" /> Tambah
+                </button>
+              </>
+            ) : (
+              <button type="button" className="btn-primary" onClick={() => openAdd("supplier")}>
+                <Plus className="h-4 w-4" /> Tambah
               </button>
-            ) : null}
+            )}
           </div>
         </div>
 
         {tab === "piutang" ? (
-          <div className="card overflow-hidden">
+          <div className="table-wrap">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -359,7 +461,7 @@ function HutangPage() {
                           </span>
                         </td>
                         <td className="px-4 py-3">
-                          <div className="flex flex-wrap gap-1.5">
+                          <div className="flex flex-wrap items-center gap-1">
                             <button
                               type="button"
                               className="rounded-lg p-1.5 text-muted hover:bg-bg"
@@ -367,6 +469,22 @@ function HutangPage() {
                               onClick={() => setDetailCust(c)}
                             >
                               <Eye className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              className="rounded-lg p-1.5 text-muted hover:bg-bg"
+                              title="Edit"
+                              onClick={() => openEditPelanggan(c)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              className="rounded-lg p-1.5 text-danger hover:bg-red-50"
+                              title="Hapus"
+                              onClick={() => void handleDeletePelanggan(c)}
+                            >
+                              <Trash2 className="h-4 w-4" />
                             </button>
                             {c.debtRemaining > 0 ? (
                               <button
@@ -395,7 +513,7 @@ function HutangPage() {
             </div>
           </div>
         ) : (
-          <div className="card overflow-hidden">
+          <div className="table-wrap">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -434,7 +552,7 @@ function HutangPage() {
                           </span>
                         </td>
                         <td className="px-4 py-3">
-                          <div className="flex flex-wrap gap-1.5">
+                          <div className="flex flex-wrap items-center gap-1">
                             <button
                               type="button"
                               className="rounded-lg p-1.5 text-muted hover:bg-bg"
@@ -444,6 +562,22 @@ function HutangPage() {
                               }
                             >
                               <Eye className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              className="rounded-lg p-1.5 text-muted hover:bg-bg"
+                              title="Edit"
+                              onClick={() => openEditSupplier(s)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              className="rounded-lg p-1.5 text-danger hover:bg-red-50"
+                              title="Hapus"
+                              onClick={() => void handleDeleteSupplier(s)}
+                            >
+                              <Trash2 className="h-4 w-4" />
                             </button>
                             {s.debt > 0 ? (
                               <button
@@ -679,6 +813,51 @@ function HutangPage() {
           Konfirmasi
         </button>
       </Modal>
+
+      <Modal
+        open={formOpen}
+        onClose={() => setFormOpen(false)}
+        title={
+          editId
+            ? formKind === "pelanggan"
+              ? "Edit Pelanggan"
+              : "Edit Supplier"
+            : formKind === "pelanggan"
+              ? "Tambah Pelanggan"
+              : "Tambah Supplier"
+        }
+      >
+        <div className="space-y-3">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted">Nama</label>
+            <input
+              className="field"
+              value={formName}
+              onChange={(e) => setFormName(e.target.value)}
+              placeholder="Nama lengkap"
+              autoFocus
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted">No. HP</label>
+            <input
+              className="field"
+              value={formPhone}
+              onChange={(e) => setFormPhone(e.target.value)}
+              placeholder="08..."
+            />
+          </div>
+          <div className="flex gap-2 pt-2">
+            <button type="button" className="btn-ghost flex-1" onClick={() => setFormOpen(false)}>
+              Batal
+            </button>
+            <button type="button" className="btn-primary flex-1" onClick={() => void handleSaveForm()}>
+              Simpan
+            </button>
+          </div>
+        </div>
+      </Modal>
+
     </>
   );
 }

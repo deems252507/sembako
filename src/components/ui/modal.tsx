@@ -21,27 +21,27 @@ export function Modal({
       <button
         type="button"
         aria-label="Tutup"
-        className="absolute inset-0 bg-ink/50"
+        className="absolute inset-0 bg-ink/45 backdrop-blur-[2px] transition-opacity"
         onClick={onClose}
       />
       <div
         className={cn(
-          "relative max-h-[92dvh] w-full overflow-y-auto rounded-t-3xl bg-surface p-5 shadow-xl sm:rounded-3xl sm:p-6",
-          wide ? "max-w-lg" : "max-w-md",
+          "relative flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-2xl bg-surface shadow-2xl sm:rounded-2xl",
+          wide ? "sm:max-w-lg" : "sm:max-w-md",
         )}
       >
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <h3 className="font-display text-xl tracking-tight text-fg">{title}</h3>
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border px-5 py-4">
+          <h3 className="text-lg font-semibold tracking-tight text-fg">{title}</h3>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md p-1.5 text-muted hover:bg-bg"
+            className="rounded-lg p-1.5 text-muted transition-colors hover:bg-bg hover:text-fg"
             aria-label="Tutup"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
-        {children}
+        <div className="overflow-y-auto px-5 py-4">{children}</div>
       </div>
     </div>
   );

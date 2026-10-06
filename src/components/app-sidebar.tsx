@@ -17,20 +17,53 @@ import { UserButton } from "@/lib/auth/gates";
 import { usePosStore } from "@/lib/pos/store";
 import { cn } from "@/lib/utils";
 
-const NAV = [
-  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/kasir", label: "Kasir", icon: ShoppingCart },
-  { to: "/produk", label: "Produk", icon: Package },
-  { to: "/stok", label: "Stok", icon: Boxes },
-  { to: "/pembelian", label: "Pembelian", icon: Truck },
-  { to: "/supplier", label: "Supplier", icon: Store },
-  { to: "/pelanggan", label: "Pelanggan", icon: Users },
-  { to: "/hutang", label: "Hutang & Piutang", icon: Wallet },
-  { to: "/keuangan", label: "Keuangan", icon: Wallet },
-  { to: "/laporan", label: "Laporan", icon: FileText },
-  { to: "/shift", label: "Shift Kasir", icon: Clock },
-  { to: "/pengguna", label: "Pengguna", icon: UserCog },
-  { to: "/pengaturan", label: "Pengaturan", icon: Settings },
+type NavItem = { to: string; label: string; icon: typeof LayoutDashboard };
+type NavGroup = { label?: string; items: NavItem[] };
+
+/** Same routes as before — only visual grouping */
+const NAV_GROUPS: NavGroup[] = [
+  {
+    items: [
+      { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    ],
+  },
+  {
+    label: "Transaksi",
+    items: [
+      { to: "/kasir", label: "Penjualan", icon: ShoppingCart },
+      { to: "/laporan", label: "Riwayat Transaksi", icon: FileText },
+    ],
+  },
+  {
+    label: "Produk",
+    items: [
+      { to: "/produk", label: "Daftar Barang", icon: Package },
+      { to: "/stok", label: "Stok", icon: Boxes },
+      { to: "/pembelian", label: "Pembelian", icon: Truck },
+    ],
+  },
+  {
+    label: "Mitra",
+    items: [
+      { to: "/pelanggan", label: "Pelanggan", icon: Users },
+      { to: "/supplier", label: "Supplier", icon: Store },
+      { to: "/hutang", label: "Hutang & Piutang", icon: Wallet },
+    ],
+  },
+  {
+    label: "Keuangan",
+    items: [
+      { to: "/keuangan", label: "Kas & Keuangan", icon: Wallet },
+      { to: "/shift", label: "Shift Kasir", icon: Clock },
+    ],
+  },
+  {
+    label: "Sistem",
+    items: [
+      { to: "/pengguna", label: "Pengguna", icon: UserCog },
+      { to: "/pengaturan", label: "Pengaturan", icon: Settings },
+    ],
+  },
 ];
 
 export function AppSidebar({ onNavigate }: { onNavigate?: () => void }) {
@@ -38,40 +71,47 @@ export function AppSidebar({ onNavigate }: { onNavigate?: () => void }) {
   const profile = usePosStore((s) => s.profile);
 
   return (
-    <aside className="flex h-full w-64 flex-col bg-ink text-ink-fg lg:fixed lg:inset-y-0 lg:left-0 lg:z-40">
-      <div className="flex items-center gap-3 border-b border-white/10 px-4 py-5">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10">
-          <Store className="h-5 w-5 text-accent-soft" />
+    <aside className="flex h-full w-[15.5rem] flex-col bg-ink text-ink-fg lg:fixed lg:inset-y-0 lg:left-0 lg:z-40">
+      <div className="flex items-center gap-3 border-b border-white/10 px-4 py-4">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-fg shadow-sm">
+          <Store className="h-4.5 w-4.5 h-[18px] w-[18px]" />
         </div>
         <div className="min-w-0">
-          <p className="truncate font-display text-base leading-tight">{profile.storeName}</p>
-          <p className="truncate text-[11px] text-ink-muted">{profile.slogan}</p>
+          <p className="truncate text-sm font-semibold leading-tight tracking-tight">
+            {profile.storeName || "Toko Sembako"}
+          </p>
+          <p className="truncate text-[11px] text-ink-muted">Manajemen Toko</p>
         </div>
       </div>
-      <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 py-3">
-        {NAV.map((item) => {
-          const active = pathname === item.to || pathname.startsWith(`${item.to}/`);
-          const Icon = item.icon;
-          return (
-            <Link
-              key={item.to}
-              to={item.to}
-              onClick={onNavigate}
-              className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-150",
-                active
-                  ? "bg-white/12 text-ink-fg"
-                  : "text-ink-muted hover:bg-white/8 hover:text-ink-fg",
-              )}
-            >
-              <Icon className="h-4 w-4 shrink-0" />
-              {item.label}
-            </Link>
-          );
-        })}
+
+      <nav className="flex-1 overflow-y-auto px-2.5 py-3">
+        {NAV_GROUPS.map((group, gi) => (
+          <div key={gi} className={gi > 0 ? "mt-1" : ""}>
+            {group.label ? <p className="nav-group-label">{group.label}</p> : null}
+            <div className="space-y-0.5">
+              {group.items.map((item) => {
+                const active =
+                  pathname === item.to || pathname.startsWith(`${item.to}/`);
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.to}
+                    to={item.to}
+                    onClick={onNavigate}
+                    className={cn("nav-item", active && "nav-item-active")}
+                  >
+                    <Icon className="h-4 w-4 shrink-0 opacity-90" />
+                    <span className="truncate">{item.label}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </nav>
+
       <div className="border-t border-white/10 p-3">
-        <div className="rounded-xl bg-white/6 px-2 py-2 text-ink-fg [&_span]:text-ink-fg [&_button]:text-ink-muted">
+        <div className="flex items-center gap-2 rounded-lg bg-white/5 px-2 py-2">
           <UserButton />
         </div>
       </div>

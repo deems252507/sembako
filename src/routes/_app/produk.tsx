@@ -208,7 +208,7 @@ function ProdukPage() {
   return (
     <>
       <PageHeader title="Produk" subtitle={`${products.length} item di etalase`} />
-      <main className="space-y-4 p-4 lg:p-6">
+      <main className="page-main space-y-4 p-4 lg:p-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-subtle" />
@@ -223,46 +223,118 @@ function ProdukPage() {
             </button>
           </div>
         </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {filtered.map((p) => (
-            <div key={p.id} className="card p-4">
-              <div className="flex gap-3">
-                <div className="grid h-14 w-14 place-items-center overflow-hidden rounded-xl bg-bg">
-                  {p.image ? <img src={p.image} alt="" className="h-full w-full object-cover" /> : <Package className="h-6 w-6 text-subtle" />}
+        {/* Mobile: card list */}
+        <div className="space-y-3 lg:hidden">
+          {filtered.length === 0 ? (
+            <div className="card p-8 text-center text-sm text-muted">Belum ada produk.</div>
+          ) : (
+            filtered.map((p) => (
+              <div key={p.id} className="card p-4">
+                <div className="flex gap-3">
+                  <div className="grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-xl bg-bg">
+                    {p.image ? <img src={p.image} alt="" className="h-full w-full object-cover" /> : <Package className="h-6 w-6 text-subtle" />}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="font-medium leading-snug">{p.name}</p>
+                      <span className={p.stock <= 0 ? "badge badge-danger" : p.stock <= p.minStock ? "badge badge-warning" : "badge badge-success"}>
+                        {p.stock <= 0 ? "Habis" : p.stock <= p.minStock ? "Menipis" : "Aman"}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted">{p.category}</p>
+                    <p className="mt-1 text-sm font-semibold text-accent tabular">{formatRupiah(p.sellPrice)}</p>
+                    <p className="text-xs text-muted">Stok {p.stock} {p.unit || "pcs"}</p>
+                  </div>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className="font-medium">{p.name}</p>
-                  <p className="font-mono text-xs text-subtle">{p.barcode || p.sku}</p>
-                  <p className="mt-1 text-sm font-semibold text-accent tabular">{formatRupiah(p.sellPrice)}<span className="text-xs font-normal text-muted"> /pcs</span></p>
-                  {p.sellPriceDus > 0 ? (
-                    <p className="text-xs text-muted tabular">{formatRupiah(p.sellPriceDus)} /dus</p>
-                  ) : null}
+                <div className="mt-3 flex gap-2">
+                  <button type="button" className="btn-ghost flex-1 py-2 text-xs" onClick={() => openEdit(p)}>
+                    <Pencil className="h-3.5 w-3.5" /> Edit
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-ghost py-2 text-danger"
+                    onClick={async () => {
+                      if (!confirm("Hapus produk?")) return;
+                      apply(await deleteProduct({ data: { id: p.id } }));
+                      toast.success("Produk dihapus");
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 </div>
               </div>
-              <div className="mt-3 flex items-center justify-between text-xs text-muted">
-                <span>Stok {p.stock} pcs{p.stockDus > 0 || p.sellPriceDus > 0 ? ` · ${p.stockDus || Math.floor(p.stock / Math.max(1, p.pcsPerDus || 1))} dus` : ` · ${p.unit}`}</span>
-                <span className={p.stock <= p.minStock ? "badge badge-warning" : "badge badge-success"}>
-                  {p.stock <= p.minStock ? "Menipis" : "Aman"}
-                </span>
-              </div>
-              <div className="mt-3 flex gap-2">
-                <button type="button" className="btn-ghost flex-1" onClick={() => openEdit(p)}>
-                  <Pencil className="h-4 w-4" /> Edit
-                </button>
-                <button
-                  type="button"
-                  className="btn-ghost text-danger"
-                  onClick={async () => {
-                    if (!window.confirm("Hapus produk ini?")) return;
-                    apply(await deleteProduct({ data: { id: p.id } }));
-                    toast.success("Produk dihapus");
-                  }}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-          ))}
+            ))
+          )}
+        </div>
+
+        {/* Desktop: professional table */}
+        <div className="table-wrap hidden lg:block">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border text-left text-muted">
+                <th className="px-4 py-3 font-medium">Produk</th>
+                <th className="px-4 py-3 font-medium">Kategori</th>
+                <th className="px-4 py-3 font-medium text-right">Harga Modal</th>
+                <th className="px-4 py-3 font-medium text-right">Harga Jual</th>
+                <th className="px-4 py-3 font-medium text-right">Stok</th>
+                <th className="px-4 py-3 font-medium">Status</th>
+                <th className="px-4 py-3 font-medium text-right">Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-10 text-center text-muted">
+                    Belum ada produk. Tambah produk untuk mulai.
+                  </td>
+                </tr>
+              ) : (
+                filtered.map((p) => (
+                  <tr key={p.id} className="border-b border-border/70">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <div className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-lg bg-bg">
+                          {p.image ? <img src={p.image} alt="" className="h-full w-full object-cover" /> : <Package className="h-4 w-4 text-subtle" />}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-medium">{p.name}</p>
+                          <p className="font-mono text-[11px] text-subtle">{p.sku || p.barcode || "-"}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-muted">{p.category}</td>
+                    <td className="px-4 py-3 text-right tabular">{formatRupiah(p.buyPrice)}</td>
+                    <td className="px-4 py-3 text-right font-medium tabular text-accent">{formatRupiah(p.sellPrice)}</td>
+                    <td className="px-4 py-3 text-right tabular">{p.stock}</td>
+                    <td className="px-4 py-3">
+                      <span className={p.stock <= 0 ? "badge badge-danger" : p.stock <= p.minStock ? "badge badge-warning" : "badge badge-success"}>
+                        {p.stock <= 0 ? "Habis" : p.stock <= p.minStock ? "Menipis" : "Aman"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex justify-end gap-1">
+                        <button type="button" className="rounded-lg p-2 text-muted hover:bg-bg hover:text-fg" title="Edit" onClick={() => openEdit(p)}>
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          className="rounded-lg p-2 text-danger hover:bg-red-50"
+                          title="Hapus"
+                          onClick={async () => {
+                            if (!confirm("Hapus produk?")) return;
+                            apply(await deleteProduct({ data: { id: p.id } }));
+                            toast.success("Produk dihapus");
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </main>
       <Modal open={open} onClose={() => setOpen(false)} title={editId ? "Edit produk" : "Produk baru"} wide>
