@@ -186,7 +186,11 @@ const productInput = z.object({
   unit: z.string().min(1),
   buyPrice: z.number(),
   sellPrice: z.number(),
+  sellPriceDus: z.number().optional().default(0),
+  buyPriceDus: z.number().optional().default(0),
+  pcsPerDus: z.number().optional().default(1),
   stock: z.number(),
+  stockDus: z.number().optional().default(0),
   minStock: z.number(),
   image: z.string().optional().default(""),
   status: z.enum(["aktif", "nonaktif"]).optional().default("aktif"),
@@ -231,7 +235,11 @@ export const upsertProduct = createServerFn({ method: "POST" })
           name = ${data.name}, sku = ${sku}, barcode = ${barcode},
           category = ${data.category}, unit = ${data.unit},
           buy_price = ${data.buyPrice}, sell_price = ${data.sellPrice},
-          stock = ${data.stock}, min_stock = ${data.minStock},
+          sell_price_dus = ${data.sellPriceDus ?? 0},
+          buy_price_dus = ${data.buyPriceDus ?? 0},
+          pcs_per_dus = ${Math.max(1, data.pcsPerDus ?? 1)},
+          stock = ${data.stock}, stock_dus = ${data.stockDus ?? 0},
+          min_stock = ${data.minStock},
           image = ${image}, status = ${data.status}
         where id = ${id} and user_id = ${context.userId}
       `;
@@ -239,11 +247,14 @@ export const upsertProduct = createServerFn({ method: "POST" })
       const sku = await nextSku(sql, context.userId);
       await sql`
         insert into products (
-          id, user_id, name, sku, barcode, category, unit, buy_price, sell_price, stock, min_stock, image, status
+          id, user_id, name, sku, barcode, category, unit,
+          buy_price, sell_price, sell_price_dus, buy_price_dus, pcs_per_dus,
+          stock, stock_dus, min_stock, image, status
         ) values (
           ${id}, ${context.userId}, ${data.name}, ${sku}, ${barcode},
           ${data.category}, ${data.unit}, ${data.buyPrice}, ${data.sellPrice},
-          ${data.stock}, ${data.minStock}, ${data.image}, ${data.status}
+          ${data.sellPriceDus ?? 0}, ${data.buyPriceDus ?? 0}, ${Math.max(1, data.pcsPerDus ?? 1)},
+          ${data.stock}, ${data.stockDus ?? 0}, ${data.minStock}, ${data.image}, ${data.status}
         )
       `;
     }
@@ -396,10 +407,12 @@ export const deletePurchase = createServerFn({ method: "POST" })
 const saleItem = z.object({
   productId: z.string(),
   name: z.string(),
-  qty: z.number().min(1),
+  qty: z.number().positive(),
   price: z.number().min(0),
   buyPrice: z.number(),
   discount: z.number().default(0),
+  unit: z.string().optional(),
+  pcsPerDus: z.number().optional(),
 });
 
 export const checkoutSale = createServerFn({ method: "POST" })
@@ -444,9 +457,12 @@ export const checkoutSale = createServerFn({ method: "POST" })
     `;
 
     for (const item of data.items) {
+      const isDus = item.unit === "dus" || item.name.includes("(dus)");
+      const pcsPer = Math.max(1, item.pcsPerDus || 1);
+      const deduct = isDus ? item.qty * pcsPer : item.qty;
       await sql`
         update products
-        set stock = greatest(0, stock - ${item.qty})
+        set stock = greatest(0, stock - ${deduct})
         where id = ${item.productId} and user_id = ${context.userId}
       `;
     }

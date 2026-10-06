@@ -22,7 +22,15 @@ export type Product = {
   unit: string;
   buyPrice: number;
   sellPrice: number;
+  /** Harga jual per dus (0 = tidak dipakai) */
+  sellPriceDus: number;
+  buyPriceDus: number;
+  /** Isi 1 dus dalam pcs */
+  pcsPerDus: number;
+  /** Stok dalam satuan pcs (dasar) */
   stock: number;
+  /** Stok dalam dus (opsional, display) */
+  stockDus: number;
   minStock: number;
   image: string;
   status: "aktif" | "nonaktif";
@@ -41,6 +49,8 @@ export type SaleItem = {
   price: number;
   buyPrice: number;
   discount: number;
+  unit?: string;
+  pcsPerDus?: number;
 };
 
 export type Sale = {
