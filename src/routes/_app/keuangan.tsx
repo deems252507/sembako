@@ -6,6 +6,7 @@ import { Modal } from "@/components/ui/modal";
 import { PageHeader } from "@/components/ui/page-header";
 import { addCashEntry, deleteCashEntry } from "@/lib/pos/actions";
 import { usePosStore } from "@/lib/pos/store";
+import { MoneyInput } from "@/components/money-input";
 import { formatDate, formatRupiah } from "@/lib/utils";
 
 export const Route = createFileRoute("/_app/keuangan")({ component: KeuanganPage });
@@ -17,7 +18,7 @@ function KeuanganPage() {
   const [open, setOpen] = useState(false);
   const [kind, setKind] = useState<"masuk" | "keluar">("masuk");
   const [note, setNote] = useState("");
-  const [amount, setAmount] = useState("");
+  const [amount, setAmount] = useState(0);
   const masuk = entries.filter((e) => e.kind === "masuk").reduce((s, e) => s + e.amount, 0);
   const keluar = entries.filter((e) => e.kind === "keluar").reduce((s, e) => s + e.amount, 0);
 
@@ -69,11 +70,11 @@ function KeuanganPage() {
           <option value="keluar">Keluar</option>
         </select>
         <input className="field mt-2" placeholder="Keterangan" value={note} onChange={(e) => setNote(e.target.value)} />
-        <input className="field mt-2" type="number" placeholder="Nominal" value={amount} onChange={(e) => setAmount(e.target.value)} />
+        <MoneyInput className="mt-2" placeholder="Nominal" value={amount} onChange={setAmount} />
         <button type="button" className="btn-primary mt-4 w-full" onClick={async () => {
           if (!note || !amount) return toast.error("Lengkapi data");
-          apply(await addCashEntry({ data: { note, kind, amount: Number(amount) } }));
-          setOpen(false); setNote(""); setAmount("");
+          apply(await addCashEntry({ data: { note, kind, amount } }));
+          setOpen(false); setNote(""); setAmount(0);
         }}>Simpan</button>
       </Modal>
     </>

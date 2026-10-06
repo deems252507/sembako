@@ -5,6 +5,7 @@ import { Modal } from "@/components/ui/modal";
 import { PageHeader } from "@/components/ui/page-header";
 import { payCustomerDebt, paySupplierDebt } from "@/lib/pos/actions";
 import { usePosStore } from "@/lib/pos/store";
+import { MoneyInput } from "@/components/money-input";
 import { cn, formatRupiah } from "@/lib/utils";
 
 export const Route = createFileRoute("/_app/hutang")({ component: HutangPage });
@@ -15,7 +16,7 @@ function HutangPage() {
   const apply = usePosStore((s) => s.apply);
   const [tab, setTab] = useState<"piutang" | "hutang">("piutang");
   const [pay, setPay] = useState<{ type: "pelanggan" | "supplier"; id: string; name: string; sisa: number } | null>(null);
-  const [amount, setAmount] = useState("");
+  const [amount, setAmount] = useState(0);
   const piutang = customers.filter((c) => c.debtRemaining > 0);
   const hutang = suppliers.filter((s) => s.debt > 0);
 
@@ -74,13 +75,13 @@ function HutangPage() {
       </main>
       <Modal open={Boolean(pay)} onClose={() => setPay(null)} title={`Bayar ${pay?.name ?? ""}`}>
         <p className="mb-2 text-sm text-muted">Sisa {formatRupiah(pay?.sisa ?? 0)}</p>
-        <input className="field" type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Nominal" />
+        <MoneyInput value={amount} onChange={setAmount} placeholder="Nominal" />
         <button
           type="button"
           className="btn-primary mt-4 w-full"
           onClick={async () => {
             if (!pay) return;
-            const nominal = Number(amount);
+            const nominal = amount;
             try {
               const snap =
                 pay.type === "pelanggan"
@@ -88,7 +89,7 @@ function HutangPage() {
                   : await paySupplierDebt({ data: { id: pay.id, amount: nominal } });
               apply(snap);
               setPay(null);
-              setAmount("");
+              setAmount(0);
               toast.success("Pembayaran tercatat");
             } catch (err) {
               toast.error(err instanceof Error ? err.message : "Gagal");

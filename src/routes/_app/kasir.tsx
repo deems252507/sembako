@@ -15,10 +15,12 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { BarcodeScanner } from "@/components/barcode-scanner";
+import { MoneyInput } from "@/components/money-input";
 import { Modal } from "@/components/ui/modal";
 import { PageHeader } from "@/components/ui/page-header";
 import { useCurrentUser } from "@/lib/auth/use-current-user";
 import { checkoutSale, upsertProduct } from "@/lib/pos/actions";
+import { findByExactBarcode } from "@/lib/pos/identity";
 import { playScanBeep } from "@/lib/pos/scan-beep";
 import { usePosStore } from "@/lib/pos/store";
 import type { PaymentMethod, Product, Sale } from "@/lib/pos/types";
@@ -51,7 +53,7 @@ function KasirPage() {
   const [mobileCart, setMobileCart] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
   const [method, setMethod] = useState<PaymentMethod>("tunai");
-  const [paid, setPaid] = useState("");
+  const [paid, setPaid] = useState(0);
   const [customerId, setCustomerId] = useState("");
   const [receipt, setReceipt] = useState<Sale | null>(null);
   const [unknownCode, setUnknownCode] = useState("");
@@ -85,12 +87,13 @@ function KasirPage() {
     (raw: string): { ok: boolean; label?: string } => {
       const code = raw.trim();
       if (!code) return { ok: false };
-      const found = products.find(
-        (p) =>
-          p.status === "aktif" &&
-          (p.barcode === code || p.sku === code || (p.barcode && p.barcode.endsWith(code))),
-      );
-      if (found) {
+      const found = findByExactBarcode(products, code);
+      if (found && found.status === "aktif") {
+        const inCart = cart.find((item) => item.product.id === found.id)?.qty ?? 0;
+        if (found.stock <= 0 || inCart >= found.stock) {
+          toast.error(`${found.name} stok tidak cukup`);
+          return { ok: false, label: "Stok tidak cukup" };
+        }
         addToCart(found);
         setLastScan({ code, name: found.name });
         setScanLog((log) => [found.name, ...log].slice(0, 5));
@@ -103,7 +106,7 @@ function KasirPage() {
       setNewProduct({ name: "", sellPrice: 0, buyPrice: 0, stock: 0, category: "Sembako" });
       return { ok: false, label: "Produk belum terdaftar" };
     },
-    [addToCart, products],
+    [addToCart, cart, products],
   );
 
   useEffect(() => {
@@ -146,7 +149,7 @@ function KasirPage() {
       toast.error("Pilih pelanggan untuk bon");
       return;
     }
-    const amount = method === "tunai" ? Number(paid) : total;
+    const amount = method === "tunai" ? paid : total;
     if (method === "tunai" && amount < total) {
       toast.error("Uang tidak cukup");
       return;
@@ -173,7 +176,7 @@ function KasirPage() {
       apply(result.snapshot);
       clearCart();
       setPayOpen(false);
-      setPaid("");
+      setPaid(0);
       setCustomerId("");
       setMobileCart(false);
       setReceipt(result.sale);
@@ -234,7 +237,7 @@ function KasirPage() {
                 className="btn-primary h-10 px-3"
               >
                 <Camera className="h-4 w-4" />
-                <span className="hidden sm:inline">Kamera</span>
+                <span className="hidden sm:inline">Scan Barcode</span>
               </button>
             </div>
             {lastScan ? (
@@ -386,18 +389,11 @@ function KasirPage() {
           ) : null}
           {method === "tunai" ? (
             <>
-              <input
-                className="field"
-                type="number"
-                autoFocus
-                placeholder="Uang diterima"
-                value={paid}
-                onChange={(e) => setPaid(e.target.value)}
-              />
-              {Number(paid) >= total ? (
+              <MoneyInput placeholder="Uang diterima" value={paid} onChange={setPaid} />
+              {paid >= total ? (
                 <div className="flex justify-between rounded-xl bg-accent-soft p-3 text-sm text-success">
                   <span>Kembalian</span>
-                  <span className="font-semibold tabular">{formatRupiah(Number(paid) - total)}</span>
+                  <span className="font-semibold tabular">{formatRupiah(paid - total)}</span>
                 </div>
               ) : null}
               <div className="grid grid-cols-4 gap-2">
@@ -405,7 +401,7 @@ function KasirPage() {
                   <button
                     key={v}
                     type="button"
-                    onClick={() => setPaid(String(v))}
+                    onClick={() => setPaid(v)}
                     className="rounded-lg border border-border py-2 text-[11px] font-medium"
                   >
                     {v === total ? "Uang pas" : formatRupiah(v)}
@@ -476,11 +472,15 @@ function KasirPage() {
       <Modal
         open={Boolean(unknownCode)}
         onClose={() => setUnknownCode("")}
-        title="Produk baru dari barcode"
+        title="Barcode tidak ditemukan."
       >
         <p className="mb-3 text-sm text-muted">
-          Barcode <span className="font-mono">{unknownCode}</span> belum ada. Lengkapi lalu masukkan ke keranjang.
+          Barcode <span className="font-mono">{unknownCode}</span> belum terdaftar.
         </p>
+        <div className="mb-3 grid grid-cols-2 gap-2">
+          <button type="button" className="btn-ghost" onClick={() => { setUnknownCode(""); setCamera(true); }}>Scan Lagi</button>
+          <button type="button" className="btn-primary" onClick={() => scanRef.current?.focus()}>Tambah Produk</button>
+        </div>
         <div className="space-y-3">
           <input
             className="field"
@@ -489,21 +489,11 @@ function KasirPage() {
             value={newProduct.name}
             onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
           />
+          <input className="field" readOnly value="SKU otomatis" />
+          <input className="field font-mono" readOnly value={unknownCode} />
           <div className="grid grid-cols-2 gap-2">
-            <input
-              className="field"
-              type="number"
-              placeholder="Harga jual"
-              value={newProduct.sellPrice || ""}
-              onChange={(e) => setNewProduct({ ...newProduct, sellPrice: Number(e.target.value) })}
-            />
-            <input
-              className="field"
-              type="number"
-              placeholder="Harga beli"
-              value={newProduct.buyPrice || ""}
-              onChange={(e) => setNewProduct({ ...newProduct, buyPrice: Number(e.target.value) })}
-            />
+            <MoneyInput placeholder="Harga jual" value={newProduct.sellPrice} onChange={(sellPrice) => setNewProduct({ ...newProduct, sellPrice })} />
+            <MoneyInput placeholder="Harga beli" value={newProduct.buyPrice} onChange={(buyPrice) => setNewProduct({ ...newProduct, buyPrice })} />
           </div>
           <div className="grid grid-cols-2 gap-2">
             <input
@@ -534,7 +524,7 @@ function KasirPage() {
               const snap = await upsertProduct({
                 data: {
                   name: newProduct.name,
-                  sku: unknownCode,
+                  sku: "",
                   barcode: unknownCode,
                   category: newProduct.category,
                   unit: "pcs",

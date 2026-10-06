@@ -3,12 +3,14 @@ import { useState } from "react";
 import { Camera, ImagePlus, Package, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { BarcodeScanner } from "@/components/barcode-scanner";
+import { MoneyInput } from "@/components/money-input";
 import { Modal } from "@/components/ui/modal";
 import { PageHeader } from "@/components/ui/page-header";
 import { deleteProduct, upsertProduct } from "@/lib/pos/actions";
+import { findByExactBarcode, findByExactName } from "@/lib/pos/identity";
 import { usePosStore } from "@/lib/pos/store";
 import { CATEGORIES, type Product } from "@/lib/pos/types";
-import { formatRupiah } from "@/lib/utils";
+import { formatNumber, formatRupiah } from "@/lib/utils";
 
 export const Route = createFileRoute("/_app/produk")({ component: ProdukPage });
 
@@ -47,6 +49,7 @@ function ProdukPage() {
   const [form, setForm] = useState<typeof empty>(empty);
   const [camera, setCamera] = useState(false);
   const [cameraTarget, setCameraTarget] = useState<"list" | "form">("list");
+  const [duplicate, setDuplicate] = useState<Product | null>(null);
 
   const filtered = products.filter(
     (p) =>
@@ -104,7 +107,7 @@ function ProdukPage() {
       return;
     }
     setEditId(null);
-    setForm({ ...empty, barcode: value, sku: value });
+    setForm({ ...empty, barcode: value });
     setOpen(true);
     toast.success("Barcode dimasukkan. Lengkapi data produk.");
   };
@@ -112,8 +115,9 @@ function ProdukPage() {
   const handleImage = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      toast.error("File harus berupa gambar.");
+    const allowed = ["image/jpeg", "image/png", "image/webp"];
+    if (!allowed.includes(file.type)) {
+      toast.error("Gunakan gambar JPG, JPEG, PNG, atau WEBP.");
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
@@ -147,12 +151,46 @@ function ProdukPage() {
     event.target.value = "";
   };
 
+  const barcodeOwner = findByExactBarcode(products, form.barcode, editId);
+  const nameOwner = findByExactName(products, form.name, editId);
+
+  const persist = async () => {
+    if (!form.name.trim()) return toast.error("Nama produk wajib");
+    if (barcodeOwner) {
+      toast.error("Barcode sudah digunakan oleh produk ini.");
+      return;
+    }
+    try {
+      const snap = await upsertProduct({ data: { ...form, id: editId ?? undefined } });
+      apply(snap);
+      setOpen(false);
+      setDuplicate(null);
+      toast.success("Produk disimpan");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "";
+      const marker = "PRODUCT_CONFLICT:";
+      const idx = message.indexOf(marker);
+      if (idx >= 0) {
+        const payload = JSON.parse(message.slice(idx + marker.length)) as { product: Product };
+        setDuplicate(payload.product);
+        toast.error("Barcode sudah digunakan oleh produk ini.");
+        return;
+      }
+      toast.error(message || "Produk gagal disimpan");
+    }
+  };
+
   const save = async () => {
-    if (!form.name || !form.sku) return toast.error("Nama dan SKU wajib");
-    const snap = await upsertProduct({ data: { ...form, id: editId ?? undefined } });
-    apply(snap);
-    setOpen(false);
-    toast.success("Produk disimpan");
+    if (!form.name.trim()) return toast.error("Nama produk wajib");
+    if (barcodeOwner) {
+      setDuplicate(barcodeOwner);
+      return;
+    }
+    if (!editId && nameOwner) {
+      setDuplicate(nameOwner);
+      return;
+    }
+    await persist();
   };
 
   return (
@@ -229,7 +267,7 @@ function ProdukPage() {
                 <div className="mt-2 flex flex-wrap gap-2">
                   <label className="btn-ghost cursor-pointer">
                     <ImagePlus className="h-4 w-4" /> Pilih gambar
-                    <input type="file" accept="image/*" className="hidden" onChange={handleImage} />
+                    <input type="file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" className="hidden" onChange={handleImage} />
                   </label>
                   {form.image ? (
                     <button type="button" className="btn-ghost text-danger" onClick={() => setForm({ ...form, image: "" })}>
@@ -243,9 +281,9 @@ function ProdukPage() {
 
           <div className="grid grid-cols-2 gap-3">
             <input className="field col-span-2" placeholder="Nama" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-            <input className="field" placeholder="SKU" value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} />
+            <input className="field" readOnly value={editId ? form.sku : "SKU otomatis"} />
             <div className="flex gap-2">
-              <input className="field min-w-0 flex-1" placeholder="Barcode" value={form.barcode} onChange={(e) => setForm({ ...form, barcode: e.target.value })} />
+              <input className="field min-w-0 flex-1 font-mono" placeholder="Barcode" value={form.barcode} onChange={(e) => setForm({ ...form, barcode: e.target.value })} />
               <button type="button" className="btn-ghost shrink-0" onClick={() => { setCameraTarget("form"); setCamera(true); }} title="Scan barcode dengan kamera">
                 <Camera className="h-4 w-4" />
                 <span className="hidden sm:inline">Scan</span>
@@ -255,8 +293,8 @@ function ProdukPage() {
             {CATEGORIES.filter((c) => c !== "Semua").map((c) => <option key={c}>{c}</option>)}
           </select>
           <input className="field" placeholder="Satuan" value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} />
-          <input className="field" type="number" placeholder="Harga beli" value={form.buyPrice || ""} onChange={(e) => setForm({ ...form, buyPrice: Number(e.target.value) })} />
-          <input className="field" type="number" placeholder="Harga jual" value={form.sellPrice || ""} onChange={(e) => setForm({ ...form, sellPrice: Number(e.target.value) })} />
+          <MoneyInput placeholder="Harga beli" value={form.buyPrice} onChange={(buyPrice) => setForm({ ...form, buyPrice })} />
+          <MoneyInput placeholder="Harga jual" value={form.sellPrice} onChange={(sellPrice) => setForm({ ...form, sellPrice })} />
           <input className="field" type="number" placeholder="Stok" value={form.stock || ""} onChange={(e) => setForm({ ...form, stock: Number(e.target.value) })} />
             <input className="field" type="number" placeholder="Stok minimum" value={form.minStock || ""} onChange={(e) => setForm({ ...form, minStock: Number(e.target.value) })} />
           </div>
@@ -264,6 +302,27 @@ function ProdukPage() {
         <button type="button" className="btn-primary mt-4 w-full" onClick={() => void save()}>
           Simpan
         </button>
+      </Modal>
+      {open && form.barcode.trim() ? (
+        <p className={`px-4 text-sm lg:px-6 ${barcodeOwner ? "text-danger" : "text-success"}`}>
+          {barcodeOwner
+            ? `Barcode sudah digunakan oleh ${barcodeOwner.name} · ${barcodeOwner.sku} · stok ${formatNumber(barcodeOwner.stock)}`
+            : "Barcode tersedia."}
+        </p>
+      ) : null}
+      <Modal open={Boolean(duplicate)} onClose={() => setDuplicate(null)} title={duplicate && duplicate.barcode === form.barcode.trim() ? "Barcode sudah digunakan oleh produk ini." : "Produk sudah terdaftar."}>
+        {duplicate ? (
+          <div className="space-y-2 text-sm">
+            <p>{duplicate.name}</p>
+            <p className="font-mono">SKU {duplicate.sku}</p>
+            <p className="font-mono">Barcode {duplicate.barcode || "-"}</p>
+            <p>Stok {formatNumber(duplicate.stock)}</p>
+            <div className="grid grid-cols-2 gap-2 pt-2">
+              <button type="button" className="btn-primary" onClick={() => { openEdit(duplicate); setDuplicate(null); }}>Gunakan Produk Ini</button>
+              <button type="button" className="btn-ghost" onClick={() => setDuplicate(null)}>Batalkan</button>
+            </div>
+          </div>
+        ) : null}
       </Modal>
       {camera ? (
         <BarcodeScanner

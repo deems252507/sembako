@@ -398,7 +398,7 @@ export const useStore = create<AppState>()(
           purchases: state.purchases.filter((p) => p.id !== id),
         })),
 
-      cashBalance: 2480000,
+      cashBalance: 0,
       cashTransactions: [
         { id: "1", date: "2026-10-01", keterangan: "Penjualan Tunai", jenis: "masuk", jumlah: 530000 },
         { id: "2", date: "2026-10-01", keterangan: "Pembelian Barang", jenis: "keluar", jumlah: 1250000 },
