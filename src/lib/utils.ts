@@ -11,11 +11,7 @@ export function formatRupiah(amount: number): string {
     currency: "IDR",
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-  }).format(amount);
-}
-
-export function formatNumber(num: number): string {
-  return new Intl.NumberFormat("id-ID").format(num);
+  }).format(Number.isFinite(amount) ? amount : 0);
 }
 
 export function formatDate(date: Date | string): string {
@@ -34,4 +30,11 @@ export function formatDateTime(date: Date | string): string {
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(date));
+}
+
+export function nid(): string {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
