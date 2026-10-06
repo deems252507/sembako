@@ -2,13 +2,13 @@ import { Product, StoreSettings, User, DashboardStats } from "@/types";
 
 export const storeSettings: StoreSettings = {
   id: "1",
-  store_name: "Warung Sembako Makmur",
+  store_name: "",
   logo: null,
-  address: "Jl. Raya Contoh No. 10, Jakarta",
-  phone: "081234567890",
-  whatsapp: "081234567890",
-  email: "info@warungsembako.com",
-  slogan: "Kelola Warung, Lebih Mudah",
+  address: "",
+  phone: "",
+  whatsapp: "",
+  email: "",
+  slogan: "Kelola bisnis Anda dengan lebih mudah",
   footer_receipt: "Terima kasih telah berbelanja!",
 };
 
