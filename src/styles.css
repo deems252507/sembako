@@ -69,6 +69,33 @@
   box-shadow: 0 1px 2px rgb(18 36 27 / 0.04);
 }
 
+
+.universal-field {
+  width: 100%;
+  min-height: 46px;
+  border-radius: 0.75rem;
+  border: 1px solid #dbe2df;
+  background: #ffffff;
+  padding: 0.7rem 0.9rem;
+  font-size: 0.875rem;
+  color: #0f172a;
+  outline: none;
+  transition: border-color 150ms ease, box-shadow 150ms ease, background 150ms ease;
+}
+
+.universal-field::placeholder {
+  color: #94a3b8;
+}
+
+.universal-field:hover {
+  border-color: #cbd5d1;
+}
+
+.universal-field:focus {
+  border-color: #059669;
+  box-shadow: 0 0 0 3px rgb(16 185 129 / 0.12);
+}
+
 .field {
   width: 100%;
   border-radius: var(--radius-md);
