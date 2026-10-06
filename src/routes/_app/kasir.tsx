@@ -90,7 +90,13 @@ function KasirPage() {
       const found = findByExactBarcode(products, code);
       if (found && found.status === "aktif") {
         const inCart = cart.find((item) => item.product.id === found.id)?.qty ?? 0;
-        if (found.stock <= 0 || inCart >= found.stock) {
+        if (found.stock <= 0) {
+          playScanBeep("miss");
+          toast.error(`${found.name} stok habis`);
+          return { ok: false, label: "Stok habis" };
+        }
+        if (inCart >= found.stock) {
+          playScanBeep("miss");
           toast.error(`${found.name} stok tidak cukup`);
           return { ok: false, label: "Stok tidak cukup" };
         }
@@ -99,9 +105,12 @@ function KasirPage() {
         setScanLog((log) => [found.name, ...log].slice(0, 5));
         setScanPulse(true);
         window.setTimeout(() => setScanPulse(false), 350);
+        setMobileCart(true);
+        playScanBeep("ok");
         toast.success(`${found.name} masuk keranjang`);
         return { ok: true, label: found.name };
       }
+      playScanBeep("miss");
       setUnknownCode(code);
       setNewProduct({ name: "", sellPrice: 0, buyPrice: 0, stock: 0, category: "Sembako" });
       return { ok: false, label: "Produk belum terdaftar" };
@@ -186,16 +195,58 @@ function KasirPage() {
     }
   };
 
-  const printReceipt = () => {
-    const content = printRef.current;
-    if (!content) return;
+  const printReceipt = (trx?: Sale | null) => {
+    const sale = trx ?? receipt;
+    if (!sale) return;
     const win = window.open("", "_blank", "width=320,height=600");
     if (!win) return;
-    win.document.write(
-      `<html><head><title>Struk</title><style>body{font-family:ui-monospace,monospace;font-size:12px;width:280px;margin:0 auto;padding:12px}</style></head><body>${content.innerHTML}</body></html>`,
-    );
+    const itemsHtml = sale.items
+      .map(
+        (item) =>
+          `<div class="row"><span>${item.name} x${item.qty}</span><span>${formatRupiah(item.price * item.qty)}</span></div>`,
+      )
+      .join("");
+    win.document.write(`
+      <html><head><title>Struk ${sale.invoice}</title>
+      <style>
+        body{font-family:monospace;font-size:12px;width:280px;margin:0 auto;padding:12px}
+        .center{text-align:center}.bold{font-weight:bold}
+        .row{display:flex;justify-content:space-between;margin:2px 0}
+        hr{border:none;border-top:1px dashed #333;margin:8px 0}
+      </style></head><body>
+      <div class="center bold" style="font-size:14px">${profile.storeName}</div>
+      <div class="center" style="font-size:11px;color:#555">${profile.address || ""}</div>
+      <div class="center" style="font-size:11px;color:#555">${profile.phone || ""}</div>
+      <hr>
+      <div>Invoice: ${sale.invoice}</div>
+      <div>Tanggal: ${sale.date.slice(0, 16).replace("T", " ")}</div>
+      <div>Kasir: ${sale.cashier}</div>
+      <div>Pelanggan: ${sale.customerName || "Umum"}</div>
+      <div>Metode: ${sale.isDebt ? "BON / HUTANG" : sale.paymentMethod}</div>
+      <div>Status: ${sale.isDebt ? "BELUM LUNAS" : "LUNAS"}</div>
+      <hr>
+      ${itemsHtml}
+      <hr>
+      <div class="row bold"><span>Total</span><span>${formatRupiah(sale.total)}</span></div>
+      ${
+        !sale.isDebt && sale.paymentMethod === "tunai"
+          ? `
+        <div class="row"><span>Bayar</span><span>${formatRupiah(sale.amountPaid)}</span></div>
+        <div class="row"><span>Kembali</span><span>${formatRupiah(sale.change)}</span></div>
+      `
+          : ""
+      }
+      ${sale.isDebt ? `<div class="center bold" style="color:#b45309;margin-top:6px">* BELUM LUNAS *</div>` : ""}
+      <hr>
+      <div class="center" style="font-size:11px;color:#888;margin-top:8px">${
+        profile.footerReceipt && !profile.footerReceipt.includes("Makmur")
+          ? profile.footerReceipt
+          : "Terima kasih telah berbelanja di " + profile.storeName + "!"
+      }</div>
+      <script>window.onload=function(){window.print()}</script>
+      </body></html>
+    `);
     win.document.close();
-    win.print();
   };
 
   return (
@@ -282,7 +333,23 @@ function KasirPage() {
                 <button
                   key={p.id}
                   type="button"
-                  onClick={() => addToCart(p)}
+                  onClick={() => {
+                    const inCart = cart.find((item) => item.product.id === p.id)?.qty ?? 0;
+                    if (p.stock <= 0) {
+                      playScanBeep("miss");
+                      toast.error(`${p.name} stok habis`);
+                      return;
+                    }
+                    if (inCart >= p.stock) {
+                      playScanBeep("miss");
+                      toast.error(`${p.name} stok tidak cukup`);
+                      return;
+                    }
+                    addToCart(p);
+                    playScanBeep("ok");
+                    setMobileCart(true);
+                    toast.success(`${p.name} masuk keranjang`);
+                  }}
                   className="card p-3 text-left transition-transform duration-150 hover:border-accent/40 active:scale-[0.98]"
                 >
                   <div className="mb-2 flex h-16 items-center justify-center overflow-hidden rounded-lg bg-bg">

@@ -55,14 +55,12 @@ export function BarcodeScanner({
     lastAt.current = now;
     const result = onScanRef.current(cleaned);
     if (result.ok) {
-      playScanBeep("ok");
       setLockLabel(result.label || cleaned);
       setStatus("locked");
       setFlash(true);
       window.setTimeout(() => setFlash(false), 280);
       window.setTimeout(() => setStatus("live"), 700);
     } else {
-      playScanBeep("miss");
       setLockLabel(result.label || "Kode belum terdaftar");
     }
   }, []);
